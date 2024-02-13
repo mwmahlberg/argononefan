@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
 )
 
 type Configuration struct {
@@ -16,7 +16,7 @@ type Threshold struct {
 }
 
 func readConfiguration(filePath string) (*Configuration, error) {
-	content, err := ioutil.ReadFile(filePath)
+	content, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("unable to read configuration file %s : %w", filePath, err)
 	}
