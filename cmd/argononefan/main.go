@@ -80,9 +80,20 @@ func main() {
 		if cli.Fan.SetSpeed.Speed < 0 || cli.Fan.SetSpeed.Speed > 100 {
 			ctx.Fatalf("desired fan speed is out of range [0-100]: %d", cli.Fan.SetSpeed.Speed)
 		}
-		ctx.FatalIfErrorf(argononefan.SetFanSpeed(cli.Bus, cli.Fan.SetSpeed.Speed), "setting fan speed")
+		fan, err := argononefan.Connect(argononefan.OnBus(cli.Bus))
+		ctx.FatalIfErrorf(err, "connecting to fan")
+		ctx.FatalIfErrorf(fan.SetSpeed(cli.Fan.SetSpeed.Speed), "setting fan speed")
 		os.Exit(0)
 	}
+
+	fan, err := argononefan.Connect(argononefan.OnBus(cli.Bus))
+
+	if err != nil {
+		l.Error("connecting to fan", "error", err)
+		os.Exit(1)
+	}
+
+	fan.SetSpeed(100)
 
 	l.Debug("Running with configuration", "config", cli)
 
@@ -94,10 +105,11 @@ func main() {
 	tempC, done := readTemp(cli.Daemon.CheckInterval)
 
 	l.Debug("Starting adjust goroutine")
-	go adjust(cli.Bus, cli.Daemon.Thresholds, tempC)
+	go control(fan, cli.Daemon.Thresholds, tempC)
 
 	l.Debug("Waiting for stop signal")
 	<-stopsig
+	defer fan.SetSpeed(100)
 	l.Debug("Stop signal received")
 
 	l.Debug("Closing temperature reading goroutine")
@@ -108,11 +120,11 @@ func main() {
 	ctx.FatalIfErrorf(err, readingTemperatureMsg)
 
 	l.Warn("Fan control is shutting down, setting fan to 100% speed as a safety measure", "temperature", fmt.Sprintf("%2.1f°C", lastTemp))
-	argononefan.SetFanSpeed(cli.Bus, 100)
+
 }
 
 func readTemp(interval time.Duration) (<-chan float32, chan<- bool) {
-	ml := l.Named("readTemp")
+	ml := l.Named("read")
 
 	c := make(chan float32)
 	done := make(chan bool)
@@ -138,7 +150,7 @@ func readTemp(interval time.Duration) (<-chan float32, chan<- bool) {
 					ml.Error(readingTemperatureMsg, "error", err)
 					continue
 				}
-				ml.Debug("Read temperature", "temperature", t)
+				ml.Debug("Read temperature", "temperature", fmt.Sprintf("%2.1f", t))
 				ml.Debug("Sending temperature to adjust goroutine")
 				c <- t
 			}
@@ -147,9 +159,9 @@ func readTemp(interval time.Duration) (<-chan float32, chan<- bool) {
 	return c, done
 }
 
-func adjust(bus int, config map[float32]int, tempC <-chan float32) {
+func control(fan *argononefan.Fan, config map[float32]int, tempC <-chan float32) {
 
-	ml := l.Named("adjust")
+	ml := l.Named("control")
 	// Ensure we are looking at the thresholds in descending order
 	thresholds := maps.Keys(config)
 	slices.Sort(thresholds)
@@ -159,7 +171,7 @@ func adjust(bus int, config map[float32]int, tempC <-chan float32) {
 	var currentIdx int
 
 	for currentTemperature := range tempC {
-		ml.Debug("Received temperature from reading goroutine", "temperature", currentTemperature)
+		ml.Debug("Received temperature from reading goroutine", "temperature", fmt.Sprintf("%2.1f", currentTemperature))
 
 		// Find the index of the threshold matching the current temperature
 		idx := slices.IndexFunc(thresholds, func(t float32) bool {
@@ -173,11 +185,11 @@ func adjust(bus int, config map[float32]int, tempC <-chan float32) {
 		case -1:
 			ml.Debug("Temperature is lower than the lowest threshold, set fan to 0% speed")
 			currentIdx = -1
-			argononefan.SetFanSpeed(bus, 0)
+			fan.SetSpeed(0)
 		default:
 			ml.Debug("Found threshold", "index", idx, "threshold", thresholds[idx], "fanSpeed", config[thresholds[idx]])
 			currentIdx = idx
-			argononefan.SetFanSpeed(bus, config[thresholds[idx]])
+			fan.SetSpeed(config[thresholds[idx]])
 		}
 	}
 
