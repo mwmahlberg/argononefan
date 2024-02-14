@@ -2,3 +2,5 @@
 /setfan
 /readtemp
 /adjustfan
+
+*.rpm
