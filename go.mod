@@ -19,6 +19,7 @@ require (
 	github.com/pkg/errors v0.8.1 // indirect
 	github.com/sigurn/crc8 v0.0.0-20160107002456-e55481d6f45c // indirect
 	github.com/sigurn/utils v0.0.0-20190728110027-e1fefb11a144 // indirect
+	golang.org/x/exp v0.0.0-20240213143201-ec583247a57a // indirect
 	golang.org/x/sys v0.17.0 // indirect
 	periph.io/x/periph v3.6.8+incompatible // indirect
 )

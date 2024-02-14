@@ -8,6 +8,8 @@ import (
 	"syscall"
 	"time"
 
+	"golang.org/x/exp/maps"
+
 	"github.com/alecthomas/kong"
 	"github.com/hashicorp/go-hclog"
 	"github.com/samonzeweb/argononefan"
@@ -60,16 +62,19 @@ func main() {
 	l.Debug("Waiting for stop signal")
 	<-stopsig
 	l.Debug("Stop signal received")
+
 	l.Debug("Closing temperature reading goroutine")
 	done <- true
 	l.Debug("Waiting for adjust goroutine to finish")
+
 	wg.Wait()
-	// adjustFanLoop(bus, configuration, stopsig)
+
 	// Ensure the fan is reset to 100% speed when the program ends
 	argononefan.SetFanSpeed(cli.Bus, 100)
 }
 
 func readTemp(interval time.Duration) (<-chan float32, chan<- bool) {
+
 	c := make(chan float32)
 	done := make(chan bool)
 
@@ -78,6 +83,7 @@ func readTemp(interval time.Duration) (<-chan float32, chan<- bool) {
 		l.Debug("Start reading temperature", "interval", interval)
 		for {
 			select {
+
 			case <-done:
 				l.Debug("Stop reading temperature")
 				l.Debug("Closing temperature channel")
@@ -86,14 +92,15 @@ func readTemp(interval time.Duration) (<-chan float32, chan<- bool) {
 				return
 
 			case <-tick.C:
-				cpuTemparature, err := argononefan.ReadCPUTemperature()
+				t, err := argononefan.ReadCPUTemperature()
+
 				if err != nil {
 					l.Error("Error reading temperature", "error", err)
 					continue
 				}
-				l.Debug("Reading temperature", "temperature", cpuTemparature)
+				l.Debug("Read temperature", "temperature", t)
 				l.Debug("Sending temperature to adjust goroutine")
-				c <- cpuTemparature
+				c <- t
 			}
 		}
 	}()
@@ -101,11 +108,11 @@ func readTemp(interval time.Duration) (<-chan float32, chan<- bool) {
 }
 
 func adjust(bus int, config map[float32]int, tempC <-chan float32, wg *sync.WaitGroup) {
-	thresholds := make([]float32, 0, len(config))
-	for t := range config {
-		thresholds = append(thresholds, t)
-	}
 	defer wg.Done()
+
+	// Ensure we are looking at the thresholds in descending order
+	thresholds := maps.Keys(config)
+
 	for currentTemperature := range tempC {
 		l.Debug("Received temperature from reading goroutine", "temperature", currentTemperature)
 		idx := slices.IndexFunc(thresholds, func(t float32) bool {
