@@ -14,15 +14,27 @@ import (
 	"github.com/samonzeweb/argononefan"
 )
 
+const (
+	readingTemperatureMsg = "readingTemperature"
+)
+
 var (
 	l hclog.Logger
 )
 
 var cli struct {
-	Bus           int             `short:"b" long:"bus" help:"I2C bus the fan resides on" default:"0"`
-	Debug         bool            `short:"d" long:"debug" help:"Enable debug mode" default:"false"`
-	Thresholds    map[float32]int `short:"t" long:"threshold" help:"Thresholds" type:"float32:int" default:"60=100;55=50;50=10"`
-	CheckInterval time.Duration   `short:"i" long:"interval" help:"Check interval" default:"5s"`
+	Debug      bool   `short:"d" long:"debug" help:"Enable debug mode" default:"false"`
+	DeviceFile string `short:"f" long:"file" help:"File path in sysfs containing current CPU temperature" default:"/sys/class/thermal/thermal_zone0/temp"`
+
+	Daemon struct {
+		Bus           int             `short:"b" long:"bus" help:"I2C bus the fan resides on" default:"0"`
+		Thresholds    map[float32]int `short:"t" long:"threshold" help:"Thresholds" type:"float32:int" default:"60=100;55=50;50=10"`
+		CheckInterval time.Duration   `short:"i" long:"interval" help:"Check interval" default:"5s"`
+	} `kong:"cmd,help='Run the fan control daemon'"`
+
+	Temperature struct {
+		Imperial bool `short:"i" long:"imperial" help:"Display temperature in imperial system" default:"false"`
+	} `kong:"cmd,help='Read the current CPU temperature'"`
 }
 
 func main() {
@@ -43,7 +55,18 @@ func main() {
 		Name:  "argononefand",
 		Level: level,
 	})
-	l.Info("Starting adjustfan", "bus", cli.Bus, "debug", cli.Debug)
+
+	switch ctx.Command() {
+	case "temperature":
+		t, err := argononefan.ReadCPUTemperature(cli.DeviceFile)
+		ctx.FatalIfErrorf(err, readingTemperatureMsg)
+		if cli.Temperature.Imperial {
+			ctx.Printf("Temperature: %2.1f°F", toFahrenheit(t))
+		} else {
+			ctx.Printf("Temperature: %2.1f°C", t)
+		}
+		os.Exit(0)
+	}
 	l.Debug("Running with configuration", "config", cli)
 
 	l.Debug("Setting up signal handling")
@@ -51,10 +74,10 @@ func main() {
 	signal.Notify(stopsig, syscall.SIGTERM, syscall.SIGINT)
 
 	l.Debug("Starting goroutine reading temperature")
-	tempC, done := readTemp(cli.CheckInterval)
+	tempC, done := readTemp(cli.Daemon.CheckInterval)
 
 	l.Debug("Starting adjust goroutine")
-	go adjust(cli.Bus, cli.Thresholds, tempC)
+	go adjust(cli.Daemon.Bus, cli.Daemon.Thresholds, tempC)
 
 	l.Debug("Waiting for stop signal")
 	<-stopsig
@@ -64,11 +87,11 @@ func main() {
 	done <- true
 	l.Debug("Waiting for adjust goroutine to finish")
 
-	lastTemp, err := argononefan.ReadCPUTemperature()
-	ctx.FatalIfErrorf(err, "Error reading temperature")
+	lastTemp, err := argononefan.ReadCPUTemperature(cli.DeviceFile)
+	ctx.FatalIfErrorf(err, readingTemperatureMsg)
 
 	l.Warn("Fan control is shutting down, setting fan to 100% speed as a safety measure", "temperature", lastTemp)
-	argononefan.SetFanSpeed(cli.Bus, 100)
+	argononefan.SetFanSpeed(cli.Daemon.Bus, 100)
 }
 
 func readTemp(interval time.Duration) (<-chan float32, chan<- bool) {
@@ -92,10 +115,10 @@ func readTemp(interval time.Duration) (<-chan float32, chan<- bool) {
 				return
 
 			case <-tick.C:
-				t, err := argononefan.ReadCPUTemperature()
+				t, err := argononefan.ReadCPUTemperature(cli.DeviceFile)
 
 				if err != nil {
-					ml.Error("Error reading temperature", "error", err)
+					ml.Error(readingTemperatureMsg, "error", err)
 					continue
 				}
 				ml.Debug("Read temperature", "temperature", t)
@@ -141,4 +164,8 @@ func adjust(bus int, config map[float32]int, tempC <-chan float32) {
 		}
 	}
 
+}
+
+func toFahrenheit(c float32) float32 {
+	return c*9/5 + 32
 }
