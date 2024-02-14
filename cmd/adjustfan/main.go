@@ -1,8 +1,6 @@
 package main
 
 import (
-	"flag"
-	"fmt"
 	"os"
 	"os/signal"
 	"slices"
@@ -10,62 +8,50 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/alecthomas/kong"
 	"github.com/hashicorp/go-hclog"
 	"github.com/samonzeweb/argononefan"
 )
 
-// Scan temperature (and adust fan speed) with the given internval
-const adjustInterval = 5 * time.Second
-
-// The fan speed is maintained for at least X intervals
-// ie if interval is 5 seconds, and interval count is equal to 3, then
-// the fan will not slow down for at least 15 secondes (5 * 3).
-// This will not prevent the fan to speed up.
-const maintainSpeedInIntervalCount = 12
-
-// Configuration file (in current directory)
-const configurationFile = "adjustfan.json"
-
 var (
-	bus   int
-	debug bool
-	l     hclog.Logger
+	l hclog.Logger
 )
 
-func init() {
-	flag.IntVar(&bus, "bus", 0, "I2C bus the fan resides on")
-	flag.BoolVar(&debug, "debug", false, "Enable debug mode")
+var cli struct {
+	Bus           int             `short:"b" long:"bus" help:"I2C bus the fan resides on" default:"0"`
+	Debug         bool            `short:"d" long:"debug" help:"Enable debug mode" default:"false"`
+	ConfigFile    string          `short:"c" long:"config" help:"Configuration file" default:"./adjustfan.json" type:"existingfile"`
+	Thresholds    map[float32]int `short:"t" long:"threshold" help:"Thresholds" type:"float32:int" default:"60=100;55=50;50=10"`
+	CheckInterval time.Duration   `short:"i" long:"interval" help:"Check interval" default:"5s"`
 }
 
 func main() {
-	flag.Parse()
+	ctx := kong.Parse(&cli)
+	ctx.Stderr = os.Stdout
 
 	var level hclog.Level = hclog.Info
-	if debug {
+	if cli.Debug {
 		level = hclog.Debug
 	}
+
 	l = hclog.New(&hclog.LoggerOptions{
 		Name:  "argononefan",
 		Level: level,
 	})
-	l.Info("Starting adjustfan", "bus", bus, "debug", debug)
-
-	l.Debug("Reading configuration", "file", configurationFile)
-	configuration, err := readConfiguration(configurationFile)
-	if err != nil {
-		dislayErrorAndExit(err)
-	}
+	l.Info("Starting adjustfan", "bus", cli.Bus, "debug", cli.Debug)
 
 	l.Debug("Setting up signal handling")
 	var stopsig = make(chan os.Signal, 1)
 	signal.Notify(stopsig, syscall.SIGTERM|syscall.SIGINT)
 
 	l.Debug("Starting goroutine reading temperature")
-	tempC, done := readTemp(adjustInterval)
+	tempC, done := readTemp(cli.CheckInterval)
+
 	wg := sync.WaitGroup{}
 	wg.Add(1)
+
 	l.Debug("Starting adjust goroutine")
-	go adjust(bus, configuration, tempC, &wg)
+	go adjust(cli.Bus, cli.Thresholds, tempC, &wg)
 
 	l.Debug("Waiting for stop signal")
 	<-stopsig
@@ -76,7 +62,7 @@ func main() {
 	wg.Wait()
 	// adjustFanLoop(bus, configuration, stopsig)
 	// Ensure the fan is reset to 100% speed when the program ends
-	argononefan.SetFanSpeed(bus, 100)
+	argononefan.SetFanSpeed(cli.Bus, 100)
 }
 
 func readTemp(interval time.Duration) (<-chan float32, chan<- bool) {
@@ -98,7 +84,8 @@ func readTemp(interval time.Duration) (<-chan float32, chan<- bool) {
 			case <-tick.C:
 				cpuTemparature, err := argononefan.ReadCPUTemperature()
 				if err != nil {
-					dislayErrorAndExit(err)
+					l.Error("Error reading temperature", "error", err)
+					continue
 				}
 				l.Debug("Reading temperature", "temperature", cpuTemparature)
 				l.Debug("Sending temperature to adjust goroutine")
@@ -109,29 +96,28 @@ func readTemp(interval time.Duration) (<-chan float32, chan<- bool) {
 	return c, done
 }
 
-func adjust(bus int, configuration *Configuration, tempC <-chan float32, wg *sync.WaitGroup) {
+func adjust(bus int, config map[float32]int, tempC <-chan float32, wg *sync.WaitGroup) {
+	thresholds := make([]float32, 0, len(config))
+	for t := range config {
+		thresholds = append(thresholds, t)
+	}
 	defer wg.Done()
 	for currentTemperature := range tempC {
 		l.Debug("Received temperature from reading goroutine", "temperature", currentTemperature)
-		idx := slices.IndexFunc(configuration.Thresholds, func(t Threshold) bool {
+		idx := slices.IndexFunc(thresholds, func(t float32) bool {
 			// This requires the thresholds to be sorted from higher to lower
-			return currentTemperature >= t.Temperature
+			return currentTemperature >= t
 		})
 		switch idx {
 		case -1:
-			l.Info("Temperature is lower than the lowest threshold, set fan to 0% speed")
+			l.Debug("Temperature is lower than the lowest threshold, set fan to 0% speed")
 			argononefan.SetFanSpeed(bus, 0)
 		default:
-			l.Debug("Found threshold", "index", idx, "threshold", configuration.Thresholds[idx], "fanSpeed", configuration.Thresholds[idx].FanSpeed)
-			argononefan.SetFanSpeed(bus, configuration.Thresholds[idx].FanSpeed)
+			l.Debug("Found threshold", "index", idx, "threshold", thresholds[idx], "fanSpeed", config[thresholds[idx]])
+			argononefan.SetFanSpeed(bus, config[thresholds[idx]])
 		}
 	}
 	l.Debug("Temperature channel is closed, set fan to 100% speed as a safety measure")
 	// Channel is closed, set fan to 100% speed as a safety measure
 	argononefan.SetFanSpeed(bus, 100)
-}
-
-func dislayErrorAndExit(err error) {
-	fmt.Fprintln(os.Stderr, err)
-	os.Exit(1)
 }
