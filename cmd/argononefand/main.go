@@ -30,7 +30,7 @@ func main() {
 	ctx := kong.Parse(&cli,
 		kong.Name("argononefand"),
 		kong.Description("Daemon to adjust the fan speed of the Argon One case"),
-		kong.DefaultEnvars("ARGONONEFAN"),
+		kong.DefaultEnvars("ARGONONEFAND"),
 	)
 	ctx.Stderr = os.Stdout
 
