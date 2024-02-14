@@ -1,8 +1,8 @@
-BINARIES = setfan argononefan
+BINARIES = argononefan
 
 all: $(BINARIES)
 
-%: cmd/%/main.go
+%: cmd/%/main.go fan.go temp.go
 	go build ./cmd/$@
 
 clean:

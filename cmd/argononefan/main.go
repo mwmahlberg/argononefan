@@ -26,9 +26,9 @@ var (
 var cli struct {
 	Debug      bool   `short:"d" long:"debug" help:"Enable debug mode" default:"false"`
 	DeviceFile string `short:"f" long:"file" help:"File path in sysfs containing current CPU temperature" default:"/sys/class/thermal/thermal_zone0/temp"`
+	Bus        int    `short:"b" long:"bus" help:"I2C bus the fan resides on" default:"0"`
 
 	Daemon struct {
-		Bus           int             `short:"b" long:"bus" help:"I2C bus the fan resides on" default:"0"`
 		Thresholds    map[float32]int `short:"t" long:"threshold" help:"Thresholds" type:"float32:int" default:"60=100;55=50;50=10"`
 		CheckInterval time.Duration   `short:"i" long:"interval" help:"Check interval" default:"5s"`
 	} `kong:"cmd,help='Run the fan control daemon'"`
@@ -36,6 +36,12 @@ var cli struct {
 	Temperature struct {
 		Imperial bool `short:"i" long:"imperial" help:"Display temperature in imperial system" default:"false"`
 	} `kong:"cmd,help='Read the current CPU temperature'"`
+
+	Fan struct {
+		SetSpeed struct {
+			Speed int `arg:"" help:"Fan speed" required:"" min:"0" max:"100"`
+		} `kong:"cmd,help='Set the fan speed'"`
+	} `kong:"cmd,help='Interact with the fan'"`
 }
 
 func main() {
@@ -56,7 +62,7 @@ func main() {
 		Name:  "argononefand",
 		Level: level,
 	})
-
+	l.Debug("Executing", "command", ctx.Command())
 	switch ctx.Command() {
 	case "temperature":
 
@@ -70,6 +76,12 @@ func main() {
 		}
 
 		os.Exit(0)
+	case "fan set-speed <speed>":
+		if cli.Fan.SetSpeed.Speed < 0 || cli.Fan.SetSpeed.Speed > 100 {
+			ctx.Fatalf("desired fan speed is out of range [0-100]: %d", cli.Fan.SetSpeed.Speed)
+		}
+		ctx.FatalIfErrorf(argononefan.SetFanSpeed(cli.Bus, cli.Fan.SetSpeed.Speed), "setting fan speed")
+		os.Exit(0)
 	}
 
 	l.Debug("Running with configuration", "config", cli)
@@ -82,7 +94,7 @@ func main() {
 	tempC, done := readTemp(cli.Daemon.CheckInterval)
 
 	l.Debug("Starting adjust goroutine")
-	go adjust(cli.Daemon.Bus, cli.Daemon.Thresholds, tempC)
+	go adjust(cli.Bus, cli.Daemon.Thresholds, tempC)
 
 	l.Debug("Waiting for stop signal")
 	<-stopsig
@@ -96,7 +108,7 @@ func main() {
 	ctx.FatalIfErrorf(err, readingTemperatureMsg)
 
 	l.Warn("Fan control is shutting down, setting fan to 100% speed as a safety measure", "temperature", fmt.Sprintf("%2.1f°C", lastTemp))
-	argononefan.SetFanSpeed(cli.Daemon.Bus, 100)
+	argononefan.SetFanSpeed(cli.Bus, 100)
 }
 
 func readTemp(interval time.Duration) (<-chan float32, chan<- bool) {
