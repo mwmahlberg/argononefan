@@ -21,7 +21,6 @@ var (
 var cli struct {
 	Bus           int             `short:"b" long:"bus" help:"I2C bus the fan resides on" default:"0"`
 	Debug         bool            `short:"d" long:"debug" help:"Enable debug mode" default:"false"`
-	ConfigFile    string          `short:"c" long:"config" help:"Configuration file" default:"./adjustfan.json" type:"existingfile"`
 	Thresholds    map[float32]int `short:"t" long:"threshold" help:"Thresholds" type:"float32:int" default:"60=100;55=50;50=10"`
 	CheckInterval time.Duration   `short:"i" long:"interval" help:"Check interval" default:"5s"`
 }
