@@ -5,6 +5,7 @@ Summary:  Produces a familiar, friendly greeting
 License:  MIT
 URL:      https://github.com/mwmahlberg/argononefan/
 Source0:   https://github.com/mwmahlberg/argononefan/archive/refs/heads/master.zip
+BuildRequires: golang
 %global debug_package %{nil}
 %description
 Argon One fan control daemon and cli tools.
