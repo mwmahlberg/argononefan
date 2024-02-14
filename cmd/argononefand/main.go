@@ -4,7 +4,6 @@ import (
 	"os"
 	"os/signal"
 	"slices"
-	"sync"
 	"syscall"
 	"time"
 
@@ -13,10 +12,6 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/hashicorp/go-hclog"
 	"github.com/samonzeweb/argononefan"
-)
-
-const (
-	signals = syscall.SIGTERM | syscall.SIGINT
 )
 
 var (
@@ -48,16 +43,14 @@ func main() {
 
 	l.Debug("Setting up signal handling")
 	var stopsig = make(chan os.Signal, 1)
-	signal.Notify(stopsig, signals)
+	signal.Notify(stopsig, syscall.SIGTERM, syscall.SIGINT)
 
 	l.Debug("Starting goroutine reading temperature")
 	tempC, done := readTemp(cli.CheckInterval)
 
-	wg := sync.WaitGroup{}
-	wg.Add(1)
 
 	l.Debug("Starting adjust goroutine")
-	go adjust(cli.Bus, cli.Thresholds, tempC, &wg)
+	go adjust(cli.Bus, cli.Thresholds, tempC)
 
 	l.Debug("Waiting for stop signal")
 	<-stopsig
@@ -107,8 +100,7 @@ func readTemp(interval time.Duration) (<-chan float32, chan<- bool) {
 	return c, done
 }
 
-func adjust(bus int, config map[float32]int, tempC <-chan float32, wg *sync.WaitGroup) {
-	defer wg.Done()
+func adjust(bus int, config map[float32]int, tempC <-chan float32) {
 
 	// Ensure we are looking at the thresholds in descending order
 	thresholds := maps.Keys(config)
