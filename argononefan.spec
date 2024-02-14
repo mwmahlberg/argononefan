@@ -1,14 +1,14 @@
 Name:     argononefan
-Version:  0.10
+Version:  0.11
 Release:  %autorelease
-Summary:  Produces a familiar, friendly greeting
+Summary:  ArgonOne fan control daemon and cli tools
 License:  MIT
 URL:      https://github.com/mwmahlberg/argononefan/
-Source0:   https://github.com/mwmahlberg/argononefan/archive/refs/heads/master.zip
+Source0:  https://github.com/mwmahlberg/argononefan/archive/refs/heads/master.zip
 BuildRequires: golang
 %global debug_package %{nil}
 %description
-Argon One fan control daemon and cli tools.
+ArgonOne fan control daemon and cli tools.
 
 %prep
 echo "Prep"
