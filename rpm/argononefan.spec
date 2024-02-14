@@ -20,7 +20,6 @@ make
 %install
 rm -rf $RPM_BUILD_ROOT
 install -D -m 0640 rpm/argononefan.service $RPM_BUILD_ROOT/lib/systemd/system/argononefan.service
-install -D -m 0750 setfan $RPM_BUILD_ROOT/%{_sbindir}/setfan
 install -D -m 0750 argononefan $RPM_BUILD_ROOT/%{_sbindir}/argononefan
 
 %files
