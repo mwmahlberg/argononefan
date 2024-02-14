@@ -26,7 +26,12 @@ var cli struct {
 }
 
 func main() {
-	ctx := kong.Parse(&cli)
+
+	ctx := kong.Parse(&cli,
+		kong.Name("argononefand"),
+		kong.Description("Daemon to adjust the fan speed of the Argon One case"),
+		kong.DefaultEnvars("ARGONONEFAN"),
+	)
 	ctx.Stderr = os.Stdout
 
 	var level hclog.Level = hclog.Info
@@ -35,10 +40,11 @@ func main() {
 	}
 
 	l = hclog.New(&hclog.LoggerOptions{
-		Name:  "argononefan",
+		Name:  "argononefand",
 		Level: level,
 	})
 	l.Info("Starting adjustfan", "bus", cli.Bus, "debug", cli.Debug)
+	l.Debug("Running with configuration", "config", cli)
 
 	l.Debug("Setting up signal handling")
 	var stopsig = make(chan os.Signal, 1)
@@ -46,7 +52,6 @@ func main() {
 
 	l.Debug("Starting goroutine reading temperature")
 	tempC, done := readTemp(cli.CheckInterval)
-
 
 	l.Debug("Starting adjust goroutine")
 	go adjust(cli.Bus, cli.Thresholds, tempC)
@@ -59,39 +64,42 @@ func main() {
 	done <- true
 	l.Debug("Waiting for adjust goroutine to finish")
 
-	wg.Wait()
+	lastTemp, err := argononefan.ReadCPUTemperature()
+	ctx.FatalIfErrorf(err, "Error reading temperature")
 
-	// Ensure the fan is reset to 100% speed when the program ends
+	l.Warn("Fan control is shutting down, setting fan to 100% speed as a safety measure", "temperature", lastTemp)
 	argononefan.SetFanSpeed(cli.Bus, 100)
 }
 
 func readTemp(interval time.Duration) (<-chan float32, chan<- bool) {
+	ml := l.Named("readTemp")
 
 	c := make(chan float32)
 	done := make(chan bool)
-
 	go func() {
+
 		tick := time.NewTicker(interval)
-		l.Debug("Start reading temperature", "interval", interval)
+
+		ml.Debug("Start reading temperature", "interval", interval)
 		for {
 			select {
 
 			case <-done:
-				l.Debug("Stop reading temperature")
+				ml.Debug("Received stop signal")
 				l.Debug("Closing temperature channel")
 				close(c)
-				l.Debug("Exiting temperature reading goroutine")
+				l.Debug("Exiting...")
 				return
 
 			case <-tick.C:
 				t, err := argononefan.ReadCPUTemperature()
 
 				if err != nil {
-					l.Error("Error reading temperature", "error", err)
+					ml.Error("Error reading temperature", "error", err)
 					continue
 				}
-				l.Debug("Read temperature", "temperature", t)
-				l.Debug("Sending temperature to adjust goroutine")
+				ml.Debug("Read temperature", "temperature", t)
+				ml.Debug("Sending temperature to adjust goroutine")
 				c <- t
 			}
 		}
@@ -101,27 +109,36 @@ func readTemp(interval time.Duration) (<-chan float32, chan<- bool) {
 
 func adjust(bus int, config map[float32]int, tempC <-chan float32) {
 
+	ml := l.Named("adjust")
 	// Ensure we are looking at the thresholds in descending order
 	thresholds := maps.Keys(config)
 	slices.Sort(thresholds)
 	slices.Reverse(thresholds)
+	ml.Debug("Thresholds", "thresholds", thresholds)
+
+	var currentIdx int
 
 	for currentTemperature := range tempC {
-		l.Debug("Received temperature from reading goroutine", "temperature", currentTemperature)
+		ml.Debug("Received temperature from reading goroutine", "temperature", currentTemperature)
+
+		// Find the index of the threshold matching the current temperature
 		idx := slices.IndexFunc(thresholds, func(t float32) bool {
 			// This requires the thresholds to be sorted from higher to lower
 			return currentTemperature >= t
 		})
+
 		switch idx {
+		case currentIdx:
+			ml.Debug("Temperature is still within the same threshold, no need to adjust fan speed")
 		case -1:
-			l.Debug("Temperature is lower than the lowest threshold, set fan to 0% speed")
+			ml.Debug("Temperature is lower than the lowest threshold, set fan to 0% speed")
+			currentIdx = -1
 			argononefan.SetFanSpeed(bus, 0)
 		default:
-			l.Debug("Found threshold", "index", idx, "threshold", thresholds[idx], "fanSpeed", config[thresholds[idx]])
+			ml.Debug("Found threshold", "index", idx, "threshold", thresholds[idx], "fanSpeed", config[thresholds[idx]])
+			currentIdx = idx
 			argononefan.SetFanSpeed(bus, config[thresholds[idx]])
 		}
 	}
-	l.Debug("Temperature channel is closed, set fan to 100% speed as a safety measure")
-	// Channel is closed, set fan to 100% speed as a safety measure
-	argononefan.SetFanSpeed(bus, 100)
+
 }
