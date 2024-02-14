@@ -7,17 +7,17 @@ import (
 	"strings"
 )
 
-// File path in sysfs containing current CPU temperature
-const temperatureFilePath = "/sys/class/thermal/thermal_zone0/temp"
+// DefaultThermalDeviceFile is the path in sysfs containing current CPU temperature
+const DefaultThermalDeviceFile = "/sys/class/thermal/thermal_zone0/temp"
 
 // The temperature multiplier
 const multiplier = float32(1000)
 
 // ReadCPUTemperature reads the current CPU temperature
-func ReadCPUTemperature() (float32, error) {
-	content, err := os.ReadFile(temperatureFilePath)
+func ReadCPUTemperature(filepath string) (float32, error) {
+	content, err := os.ReadFile(filepath)
 	if err != nil {
-		return 0, fmt.Errorf("unable to read temperature file %s : %w", temperatureFilePath, err)
+		return 0, fmt.Errorf("unable to read temperature file %s : %w", filepath, err)
 	}
 
 	stringTemperature := strings.TrimSuffix(string(content), "\n")
