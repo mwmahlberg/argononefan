@@ -2,8 +2,8 @@
 Description=Argon One fan adjustment
 
 [Service]
-WorkingDirectory=/opt/argononefan
-ExecStart=/opt/argononefan/adjustfan
+WorkingDirectory=/etc/argonone
+ExecStart=/usr/sbin/adjustfan
 Restart=on-failure
 Type=simple
 

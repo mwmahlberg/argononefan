@@ -1,7 +1,9 @@
-build:
-	go build ./cmd/setfan
-	go build ./cmd/readtemp
-	go build ./cmd/adjustfan
+BINARIES = setfan readtemp argononefand
+
+all: $(BINARIES)
+
+%: cmd/%/main.go
+	go build ./cmd/$@
 
 install:
 	chmod 755 ./deploy/install.sh
@@ -10,3 +12,6 @@ install:
 uninstall:
 	chmod 755 ./deploy/uninstall.sh
 	./deploy/uninstall.sh
+
+clean:
+	@$(RM) $(BINARIES)

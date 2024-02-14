@@ -2,7 +2,7 @@ package argononefan
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -15,7 +15,7 @@ const multiplier = float32(1000)
 
 // ReadCPUTemperature reads the current CPU temperature
 func ReadCPUTemperature() (float32, error) {
-	content, err := ioutil.ReadFile(temperatureFilePath)
+	content, err := os.ReadFile(temperatureFilePath)
 	if err != nil {
 		return 0, fmt.Errorf("unable to read temperature file %s : %w", temperatureFilePath, err)
 	}

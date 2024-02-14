@@ -1,4 +1,5 @@
 .vscode
 /setfan
 /readtemp
-/adjustfan
+/argononefand
+*.rpm
