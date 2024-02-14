@@ -112,6 +112,8 @@ func adjust(bus int, config map[float32]int, tempC <-chan float32, wg *sync.Wait
 
 	// Ensure we are looking at the thresholds in descending order
 	thresholds := maps.Keys(config)
+	slices.Sort(thresholds)
+	slices.Reverse(thresholds)
 
 	for currentTemperature := range tempC {
 		l.Debug("Received temperature from reading goroutine", "temperature", currentTemperature)
