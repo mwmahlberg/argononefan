@@ -13,6 +13,10 @@ import (
 	"github.com/samonzeweb/argononefan"
 )
 
+const (
+	signals = syscall.SIGTERM | syscall.SIGINT
+)
+
 var (
 	l hclog.Logger
 )
@@ -42,7 +46,7 @@ func main() {
 
 	l.Debug("Setting up signal handling")
 	var stopsig = make(chan os.Signal, 1)
-	signal.Notify(stopsig, syscall.SIGTERM|syscall.SIGINT)
+	signal.Notify(stopsig, signals)
 
 	l.Debug("Starting goroutine reading temperature")
 	tempC, done := readTemp(cli.CheckInterval)
