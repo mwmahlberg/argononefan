@@ -24,6 +24,7 @@ func main() {
 
 	fanspeed, err := strconv.Atoi(flag.Arg(0))
 	if err != nil || fanspeed < 0 || fanspeed > 100 {
+		fmt.Printf("Invalid fanspeed \"%#v\":%s\n---\n", flag.Arg(0), err)
 		displayUsageAndExit()
 	}
 
