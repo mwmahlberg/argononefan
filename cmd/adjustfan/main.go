@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"os/signal"
@@ -22,7 +23,14 @@ const maintainSpeedInIntervalCount = 12
 // Configuration file (in current directory)
 const configurationFile = "adjustfan.json"
 
+var bus int
+
+func init() {
+	flag.IntVar(&bus, "bus", 0, "I2C bus the fan resides on")
+}
+
 func main() {
+	flag.Parse()
 	configuration, err := readConfiguration(configurationFile)
 	if err != nil {
 		dislayErrorAndExit(err)
@@ -31,11 +39,12 @@ func main() {
 	var stopsig = make(chan os.Signal, 1)
 	signal.Notify(stopsig, syscall.SIGTERM)
 
-	adjustFanLoop(configuration, stopsig)
-	argononefan.SetFanSpeed(0)
+	adjustFanLoop(bus, configuration, stopsig)
+	// Ensure the fan is reset to 100% speed when the program ends
+	argononefan.SetFanSpeed(bus, 100)
 }
 
-func adjustFanLoop(configuration *Configuration, stopsig <-chan os.Signal) {
+func adjustFanLoop(bus int, configuration *Configuration, stopsig <-chan os.Signal) {
 	previousFanSpeed := -1
 	intervalsWithCurrentSpeed := 0
 	for {
@@ -58,7 +67,7 @@ func adjustFanLoop(configuration *Configuration, stopsig <-chan os.Signal) {
 
 		if fanSpeed != previousFanSpeed {
 			if fanSpeed > previousFanSpeed || (intervalsWithCurrentSpeed >= maintainSpeedInIntervalCount) {
-				err := argononefan.SetFanSpeed(fanSpeed)
+				err := argononefan.SetFanSpeed(bus, fanSpeed)
 				if err != nil {
 					dislayErrorAndExit(err)
 				}
@@ -79,6 +88,5 @@ func adjustFanLoop(configuration *Configuration, stopsig <-chan os.Signal) {
 
 func dislayErrorAndExit(err error) {
 	fmt.Fprintln(os.Stderr, err)
-	_ = argononefan.SetFanSpeed(0)
 	os.Exit(1)
 }

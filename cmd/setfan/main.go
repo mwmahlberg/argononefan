@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"strconv"
@@ -8,17 +9,25 @@ import (
 	"github.com/samonzeweb/argononefan"
 )
 
+var bus int = 0
+
+func init() {
+	flag.IntVar(&bus, "bus", 0, "I2C bus the fan resides on")
+}
+
 func main() {
-	if len(os.Args) != 2 {
+	flag.Parse()
+
+	if len(flag.Args()) != 1 {
 		displayUsageAndExit()
 	}
 
-	fanspeed, err := strconv.Atoi(os.Args[1])
+	fanspeed, err := strconv.Atoi(flag.Arg(0))
 	if err != nil || fanspeed < 0 || fanspeed > 100 {
 		displayUsageAndExit()
 	}
 
-	err = argononefan.SetFanSpeed(fanspeed)
+	err = argononefan.SetFanSpeed(bus, fanspeed)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

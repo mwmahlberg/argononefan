@@ -10,7 +10,7 @@ import (
 const fanAddress = 0x1A
 
 // SetFanSpeed sets the fan speed
-func SetFanSpeed(speed int) error {
+func SetFanSpeed(bus, speed int) error {
 
 	if speed < 0 || speed > 100 {
 		return fmt.Errorf("desired fan speed is out of range : %d", speed)
@@ -19,8 +19,7 @@ func SetFanSpeed(speed int) error {
 	adapter := raspi.NewAdaptor()
 	defer adapter.Finalize()
 
-	defaulti2c := adapter.GetDefaultBus()
-	conn, err := adapter.GetConnection(fanAddress, defaulti2c)
+	conn, err := adapter.GetConnection(fanAddress, bus)
 	if err != nil {
 		return fmt.Errorf("can't connect to i2c bus : %w", err)
 	}
