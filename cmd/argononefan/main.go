@@ -37,11 +37,9 @@ var cli struct {
 		Imperial bool `short:"i" long:"imperial" help:"Display temperature in imperial system" default:"false" env:"-"`
 	} `kong:"cmd,help='Read the current CPU temperature'"`
 
-	Fan struct {
-		SetSpeed struct {
-			Speed int `arg:"" help:"Fan speed" required:"" min:"0" max:"100"`
-		} `kong:"cmd,help='Set the fan speed'"`
-	} `kong:"cmd,help='Interact with the fan'"`
+	SetSpeed struct {
+		Speed int `arg:"" help:"Fan speed" required:"" min:"0" max:"100"`
+	} `kong:"cmd,help='Set the fan speed manually'"`
 }
 
 func main() {
@@ -81,13 +79,13 @@ func main() {
 		ctx.FatalIfErrorf(readErr, readingTemperatureMsg)
 		ctx.Printf(frmt, t)
 		os.Exit(0)
-	case "fan set-speed <speed>":
-		if cli.Fan.SetSpeed.Speed < 0 || cli.Fan.SetSpeed.Speed > 100 {
-			ctx.Fatalf("desired fan speed is out of range [0-100]: %d", cli.Fan.SetSpeed.Speed)
+	case "set-speed <speed>":
+		if cli.SetSpeed.Speed < 0 || cli.SetSpeed.Speed > 100 {
+			ctx.Fatalf("desired fan speed is out of range [0-100]: %d", cli.SetSpeed.Speed)
 		}
 		fan, err := argononefan.Connect(argononefan.OnBus(cli.Bus))
 		ctx.FatalIfErrorf(err, "connecting to fan")
-		ctx.FatalIfErrorf(fan.SetSpeed(cli.Fan.SetSpeed.Speed), "setting fan speed")
+		ctx.FatalIfErrorf(fan.SetSpeed(cli.SetSpeed.Speed), "setting fan speed")
 		os.Exit(0)
 	}
 
@@ -138,6 +136,7 @@ func readTemp(interval time.Duration, tr *argononefan.ThermalReader) (<-chan flo
 		tick := time.NewTicker(interval)
 
 		ml.Debug("Start reading temperature", "interval", interval)
+
 		for {
 			select {
 
