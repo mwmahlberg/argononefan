@@ -2,7 +2,13 @@ BINARIES = setfan readtemp adjustfan
 
 all: $(BINARIES)
 
-$(BINARIES):
+adjustfan: cmd/adjustfan/main.go cmd/adjustfan/config.go
+	go build ./cmd/$@
+
+readtemp: cmd/readtemp/main.go
+	go build ./cmd/$@
+
+setfan: cmd/setfan/main.go
 	go build ./cmd/$@
 
 install:
