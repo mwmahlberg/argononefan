@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"os/signal"
 	"slices"
@@ -58,15 +59,19 @@ func main() {
 
 	switch ctx.Command() {
 	case "temperature":
+
 		t, err := argononefan.ReadCPUTemperature(cli.DeviceFile)
 		ctx.FatalIfErrorf(err, readingTemperatureMsg)
+
 		if cli.Temperature.Imperial {
 			ctx.Printf("Temperature: %2.1f°F", toFahrenheit(t))
 		} else {
 			ctx.Printf("Temperature: %2.1f°C", t)
 		}
+
 		os.Exit(0)
 	}
+
 	l.Debug("Running with configuration", "config", cli)
 
 	l.Debug("Setting up signal handling")
@@ -90,7 +95,7 @@ func main() {
 	lastTemp, err := argononefan.ReadCPUTemperature(cli.DeviceFile)
 	ctx.FatalIfErrorf(err, readingTemperatureMsg)
 
-	l.Warn("Fan control is shutting down, setting fan to 100% speed as a safety measure", "temperature", lastTemp)
+	l.Warn("Fan control is shutting down, setting fan to 100% speed as a safety measure", "temperature", fmt.Sprintf("%2.1f°C", lastTemp))
 	argononefan.SetFanSpeed(cli.Daemon.Bus, 100)
 }
 
