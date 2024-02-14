@@ -1,9 +1,9 @@
 [Unit]
-Description=Argon One fan adjustment
+Description=ArgonOne fan control daemon
 
 [Service]
 WorkingDirectory=/etc/argonone
-ExecStart=/usr/sbin/adjustfan
+ExecStart=/usr/sbin/argonone daemon
 Restart=on-failure
 Type=simple
 

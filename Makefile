@@ -1,4 +1,4 @@
-BINARIES = setfan argononefand
+BINARIES = setfan argononefan
 
 all: $(BINARIES)
 
