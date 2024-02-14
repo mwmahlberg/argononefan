@@ -15,23 +15,17 @@ echo "Prep"
 %autosetup -S git -n %{name}-master
 
 %build -p argononefan-master
-go build -ldflags=-linkmode=external ./cmd/setfan
-go build -ldflags=-linkmode=external ./cmd/readtemp
-go build -ldflags=-linkmode=external ./cmd/adjustfan
+make
 
 %install
 rm -rf $RPM_BUILD_ROOT
-install -D -m 0640 deploy/adjustfan.service $RPM_BUILD_ROOT/lib/systemd/system/adjustfan.service
-install -D -m 0750 setfan $RPM_BUILD_ROOT/%{_sbindir}/setfan
-install -D -m 0755 readtemp $RPM_BUILD_ROOT/%{_sbindir}/readtemp
-install -D -m 0750 adjustfan $RPM_BUILD_ROOT/%{_sbindir}/adjustfan
-install -D -m 0640 cmd/adjustfan/adjustfan.json $RPM_BUILD_ROOT/%{_sysconfdir}/argonone/adjustfan.json
+install -D -m 0640 rpm/argononefan.service $RPM_BUILD_ROOT/lib/systemd/system/argononefan.service
+install -D -m 0750 argononefan $RPM_BUILD_ROOT/%{_sbindir}/argononefan
 
 %files
 /lib/systemd/system/adjustfan.service
 %{_sbindir}/setfan
-%{_sbindir}/readtemp
-%{_sbindir}/adjustfan
+%{_sbindir}/argononefand
 
 %config
 %{_sysconfdir}/argonone/adjustfan.json

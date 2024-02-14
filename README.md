@@ -1,77 +1,95 @@
-# Argon One fan speed tools
+# ArgonOne fan speed tools and control daemon
 
-## Project purpose
+## Installation
 
-This project allows automatic fan speed adjustment of the Argon One Case
-without Python. It is written in Go to use less memory (and for fun).
+TBD
 
-The project creates 3 tools :
+## Usage
 
-* `readtemp` : display the current CPU temperature
-* `setfan` : set the fan speed
-* `adjustfan` : automatic fan speed adjustment
+### Daemon Mode
 
-Both `setfan` and `adjustfan` require root privileges to access I2C device.
+When run in [daemon][wp:daemon] mode, `argononefan` will read the temperature
+of the CPU each `$ARGONONEFAN_CHECK_INTERVAL` and if a threshold is crossed
+set the fan speed to the according value for the current threshold.
 
-## Tested on...
+In the output of the help below (which is also showing the defaults),
+this would translate to:
 
-I created this for my personnal use, and only tested on a Raspberry Pi 4 using :
+| Temperature | Threshold | Fan Speed       |
+| ----------- | --------- | --------------- |
+| >60°C       | 60        | 100%            |
+| 59°C        | 55        | 50%             |
+| 50°C        | 50        | 10%             |
+| <50°C       | -         | 0% (fan is off) |
 
-* Ubuntu 19.10 (arm64).
-* Raspbian (arm32, based on Debian Buster). 
+```none
+Usage: argononefan daemon
 
-The deploy part is rather *quick & dirty*. But it works.
+Run the fan control daemon
 
-## Build and install
+Flags:
+  -h, --help                             Show context-sensitive help.
+  -d, --debug                            Enable debug mode ($ARGONONEFAN_DEBUG)
+  -f, --device-file="/sys/class/thermal/thermal_zone0/temp"
+                                         File path in sysfs containing current
+                                         CPU temperature 
+                                         ($ARGONONEFAN_DEVICE_FILE)
+  -b, --bus=0                            I2C bus the fan resides on ($ARGONONEFAN_BUS)
 
-To build, and install the tools (including starting adjustfan daemon) :
-
-```
-make
-sudo make install
-```
-
-The tools are installed in `/opt/argononefan`. After that `adjustfan` should run as a service. You can change thresholds (see below).
-
-## Uninstall
-
-```
-sudo make uninstall
-```
-
-## Change fan thresholds
-
-The file `/opt/argononefan/adjustfan.json` contains the configuration used to adjust the fan speed according to the CPU temperature.
-
-You can change its content, and restart the service with :
-
-```
-sudo systemctl restart adjustfan.service
+  -t, --thresholds=60=100;55=50;50=10    Threshold map of °C to fan speed in %
+                                         ($ARGONONEFAN_THRESHOLDS)
+  -i, --check-interval=5s                Check interval ($ARGONONEFAN_CHECK_INTERVAL)
 ```
 
-An example :
+### Read the temperature of the CPU
 
-```json
-{
-    "thresholds": [
-        {
-            "temperature": 65,
-            "fanspeed": 100
-        },
-        {
-            "temperature": 60,
-            "fanspeed": 50
-        },
-        {
-            "temperature": 55,
-            "fanspeed": 10
-        }
-    ]
-}
+```none
+Usage: argononefan temperature
+
+Read the current CPU temperature
+
+Flags:
+  -h, --help        Show context-sensitive help.
+  -d, --debug       Enable debug mode ($ARGONONEFAN_DEBUG)
+  -f, --device-file="/sys/class/thermal/thermal_zone0/temp"
+                    File path in sysfs containing current CPU temperature
+                    ($ARGONONEFAN_DEVICE_FILE)
+  -b, --bus=0       I2C bus the fan resides on ($ARGONONEFAN_BUS)
+
+  -i, --imperial    Display temperature in imperial system
 ```
 
-Thresholds have to be ordered from the higher to lower temperature. Under the lowest temperature the fan is stopped.
+### Set the fan speed statically
 
-## Licence
+You can set the fan speed with `argononefan set-speed <speed>`.
+Not that this will only temporarily overwrite the adjustments made when
+`argononefan` is also running in daemon mode on the same machine.
 
-Released under the MIT License, see LICENSE.txt for more informations.==)
+```none
+Usage: argononefan set-speed <speed>
+
+Set the fan speed manually
+
+Arguments:
+  <speed>    Fan speed
+
+Flags:
+  -h, --help     Show context-sensitive help.
+  -d, --debug    Enable debug mode ($ARGONONEFAN_DEBUG)
+  -f, --device-file="/sys/class/thermal/thermal_zone0/temp"
+                 File path in sysfs containing current CPU temperature ($ARGONONEFAN_DEVICE_FILE)
+  -b, --bus=0    I2C bus the fan resides on ($ARGONONEFAN_BUS)
+```
+
+## Thanks
+
+This tool started as a fork of [samonzeweb/argononefan](https://github.com/samonzeweb/argononefan).
+
+I realized pretty soon that I'd have to overhaul it substantially to fit my needs.
+It turned out to be true: I have rewritten pretty much every line of code.
+
+Nevertheless, I would like to thank @samonzeweb for the inspiration and the
+foundational work. As usual as an open source developer one stands on the
+shoulders of giants.
+
+[wp:daemon]: https://en.wikipedia.org/wiki/Daemon_(computing) "Wikipedia page on 'daemon (computing)'"
