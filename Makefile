@@ -7,3 +7,6 @@ all: $(BINARIES)
 
 clean:
 	@$(RM) $(BINARIES)
+
+distclean: clean
+	@$(RM) *.rpm
