@@ -1,4 +1,4 @@
-module github.com/samonzeweb/argononefan
+module github.com/mwmahlberg/argononefan
 
 go 1.21
 

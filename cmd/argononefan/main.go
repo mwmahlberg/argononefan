@@ -12,7 +12,7 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/hashicorp/go-hclog"
-	"github.com/samonzeweb/argononefan"
+	"github.com/mwmahlberg/argononefan"
 )
 
 const (
