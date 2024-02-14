@@ -29,12 +29,12 @@ var cli struct {
 	Bus        int    `short:"b" long:"bus" help:"I2C bus the fan resides on" default:"0"`
 
 	Daemon struct {
-		Thresholds    map[float32]int `short:"t" long:"threshold" help:"Thresholds" type:"float32:int" default:"60=100;55=50;50=10"`
+		Thresholds    map[float32]int `short:"t" long:"threshold" help:"Threshold map of °C to fan speed in %" type:"float32:int" default:"60=100;55=50;50=10"`
 		CheckInterval time.Duration   `short:"i" long:"interval" help:"Check interval" default:"5s"`
 	} `kong:"cmd,help='Run the fan control daemon'"`
 
 	Temperature struct {
-		Imperial bool `short:"i" long:"imperial" help:"Display temperature in imperial system" default:"false"`
+		Imperial bool `short:"i" long:"imperial" help:"Display temperature in imperial system" default:"false" env:"-"`
 	} `kong:"cmd,help='Read the current CPU temperature'"`
 
 	Fan struct {
@@ -47,9 +47,9 @@ var cli struct {
 func main() {
 
 	ctx := kong.Parse(&cli,
-		kong.Name("argononefand"),
+		kong.Name("argononefan"),
 		kong.Description("Daemon to adjust the fan speed of the Argon One case"),
-		kong.DefaultEnvars("ARGONONEFAND"),
+		kong.DefaultEnvars("ARGONONEFAN"),
 	)
 	ctx.Stderr = os.Stdout
 
@@ -62,19 +62,24 @@ func main() {
 		Name:  "argononefand",
 		Level: level,
 	})
+	tr, err := argononefan.NewThermalReader(argononefan.WithThermalDeviceFile(cli.DeviceFile))
+	ctx.FatalIfErrorf(err, "creating thermal reader")
 	l.Debug("Executing", "command", ctx.Command())
 	switch ctx.Command() {
 	case "temperature":
 
-		t, err := argononefan.ReadCPUTemperature(cli.DeviceFile)
-		ctx.FatalIfErrorf(err, readingTemperatureMsg)
-
+		var t float32
+		var frmt string
+		var readErr error
 		if cli.Temperature.Imperial {
-			ctx.Printf("Temperature: %2.1f°F", toFahrenheit(t))
+			t, readErr = tr.Fahrenheit()
+			frmt = "Temperature: %2.1f°F"
 		} else {
-			ctx.Printf("Temperature: %2.1f°C", t)
+			t, readErr = tr.Celsius()
+			frmt = "Temperature: %2.1f°C"
 		}
-
+		ctx.FatalIfErrorf(readErr, readingTemperatureMsg)
+		ctx.Printf(frmt, t)
 		os.Exit(0)
 	case "fan set-speed <speed>":
 		if cli.Fan.SetSpeed.Speed < 0 || cli.Fan.SetSpeed.Speed > 100 {
@@ -102,7 +107,7 @@ func main() {
 	signal.Notify(stopsig, syscall.SIGTERM, syscall.SIGINT)
 
 	l.Debug("Starting goroutine reading temperature")
-	tempC, done := readTemp(cli.Daemon.CheckInterval)
+	tempC, done := readTemp(cli.Daemon.CheckInterval, tr)
 
 	l.Debug("Starting adjust goroutine")
 	go control(fan, cli.Daemon.Thresholds, tempC)
@@ -116,14 +121,14 @@ func main() {
 	done <- true
 	l.Debug("Waiting for adjust goroutine to finish")
 
-	lastTemp, err := argononefan.ReadCPUTemperature(cli.DeviceFile)
+	lastTemp, err := tr.Celsius()
 	ctx.FatalIfErrorf(err, readingTemperatureMsg)
 
 	l.Warn("Fan control is shutting down, setting fan to 100% speed as a safety measure", "temperature", fmt.Sprintf("%2.1f°C", lastTemp))
 
 }
 
-func readTemp(interval time.Duration) (<-chan float32, chan<- bool) {
+func readTemp(interval time.Duration, tr *argononefan.ThermalReader) (<-chan float32, chan<- bool) {
 	ml := l.Named("read")
 
 	c := make(chan float32)
@@ -144,8 +149,8 @@ func readTemp(interval time.Duration) (<-chan float32, chan<- bool) {
 				return
 
 			case <-tick.C:
-				t, err := argononefan.ReadCPUTemperature(cli.DeviceFile)
 
+				t, err := tr.Celsius()
 				if err != nil {
 					ml.Error(readingTemperatureMsg, "error", err)
 					continue
@@ -193,8 +198,4 @@ func control(fan *argononefan.Fan, config map[float32]int, tempC <-chan float32)
 		}
 	}
 
-}
-
-func toFahrenheit(c float32) float32 {
-	return c*9/5 + 32
 }
