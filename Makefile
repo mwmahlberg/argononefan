@@ -1,4 +1,4 @@
-BINARIES = setfan readtemp argononefand
+BINARIES = setfan argononefand
 
 all: $(BINARIES)
 
