@@ -3,8 +3,8 @@ BINARIES = argononefan
 
 all: $(BINARIES)
 
-%: cmd/%/main.go fan.go temperature.go
-	go build ./cmd/$@
+%: cmd/%/main.go cmd/%/help.go cmd/%/thresholds.go fan.go temperature.go
+	go build ${GOLDFLAGS} ./cmd/$@
 
 clean:
 	@$(RM) $(BINARIES)
