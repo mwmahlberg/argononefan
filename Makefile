@@ -3,7 +3,7 @@ BINARIES = argononefan
 
 all: $(BINARIES)
 
-%: cmd/%/main.go fan.go temp.go
+%: cmd/%/main.go fan.go temperature.go
 	go build ./cmd/$@
 
 clean:
