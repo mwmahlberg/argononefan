@@ -212,10 +212,6 @@ func control(fan *argononefan.Fan, config *thresholds, hysteresis float32, tempC
 		switch speed {
 		case currentSpeed:
 			ml.Debug("Temperature is still within the same threshold, no need to adjust fan speed")
-		case -1:
-			ml.Debug("Temperature is lower than the lowest threshold, set fan to 0% speed")
-			currentSpeed = -1
-			fan.SetSpeed(0)
 		default:
 			ml.Debug("Found threshold", "threshold", config.GetThreshold(currentTemperature), "computed fanSpeed with hystersis", config.GetSpeedWithHysteresis(currentTemperature, hysteresis))
 			currentSpeed = speed

@@ -19,4 +19,5 @@ func TestHysteresis(t *testing.T) {
 	assert.Equal(t, 50, thresholds.GetSpeed(55))
 	assert.Equal(t, 50, thresholds.GetSpeedWithHysteresis(54.5, 1))
 	assert.Equal(t, 10, thresholds.GetSpeedWithHysteresis(54, 1))
+	assert.Equal(t, 0, thresholds.GetSpeedWithHysteresis(49, 1))
 }
