@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -126,7 +127,9 @@ func (d *daemonCmd) control(fan *argononefan.Fan, config *thresholds, hysteresis
 
 	var currentSpeed int = -1
 
+	var once sync.Once
 	for currentTemperature := range tempC {
+
 		ml.Debug("Received temperature from read", "temperature", fmt.Sprintf("%2.1f", currentTemperature))
 
 		speed := config.GetSpeed(currentTemperature)
@@ -140,6 +143,9 @@ func (d *daemonCmd) control(fan *argononefan.Fan, config *thresholds, hysteresis
 			ml.Debug("Found threshold", "threshold", config.GetThreshold(currentTemperature), "computed fanSpeed with hystersis", config.GetSpeedWithHysteresis(currentTemperature, hysteresis))
 			currentSpeed = speed
 			fan.SetSpeed(speed)
+			once.Do(func() {
+				ml.Info("Set initial fan speed based on readings", "temperature", currentTemperature, "speed", currentSpeed)
+			})
 		}
 	}
 
