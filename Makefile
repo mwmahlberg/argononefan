@@ -1,4 +1,5 @@
 BINARIES = argononefan
+.PHONY: all clean distclean docker
 
 all: $(BINARIES)
 
@@ -10,3 +11,6 @@ clean:
 
 distclean: clean
 	@$(RM) *.rpm
+
+docker:
+	docker build -t mwmahlberg/argononefan-rpm-builder .
