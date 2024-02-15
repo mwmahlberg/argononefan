@@ -1,5 +1,5 @@
 Name:     argononefan
-Version:  0.11
+Version:  0.0.1
 Release:  %autorelease
 Summary:  ArgonOne fan control daemon and cli tools
 Packager: Markus Mahlberg <138420+mwmahlberg@users.noreply.github.com>
