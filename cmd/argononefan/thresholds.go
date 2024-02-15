@@ -42,15 +42,15 @@ func (t *thresholds) UnmarshalText(text []byte) error {
 	for _, val := range strings.Split(string(text), ";") {
 		kv := strings.Split(val, "=")
 		if len(kv) != 2 {
-			return fmt.Errorf("invalid threshold: %s", val)
+			return fmt.Errorf("not a key/value pair: %s", val)
 		}
 		f, err := strconv.ParseFloat(kv[0], 32)
 		if err != nil {
-			return fmt.Errorf("invalid threshold: %s", val)
+			return fmt.Errorf("parsing key %s: %s", kv[0], err)
 		}
 		i, err := strconv.Atoi(kv[1])
 		if err != nil {
-			return fmt.Errorf("invalid threshold: %s", val)
+			return fmt.Errorf("parsing value %s: %s", kv[1], err)
 		}
 		t.thresholds[float32(f)] = i
 	}
