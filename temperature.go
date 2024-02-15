@@ -7,9 +7,10 @@ import (
 	"strconv"
 )
 
+// DefaultThermalDeviceFile is the path in sysfs containing current CPU temperature
+const DefaultThermalDeviceFile = "/sys/class/thermal/thermal_zone0/temp"
+
 const (
-	// DefaultThermalDeviceFile is the path in sysfs containing current CPU temperature
-	DefaultThermalDeviceFile = "/sys/class/thermal/thermal_zone0/temp"
 	// The temperature multiplier
 	multiplier = float32(1000)
 )
