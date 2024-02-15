@@ -1,0 +1,11 @@
+[Unit]
+Description=ArgonOne fan control daemon
+
+[Service]
+WorkingDirectory=/etc/argonone
+ExecStart=/usr/sbin/argonone daemon
+Restart=on-failure
+Type=simple
+
+[Install]
+WantedBy=multi-user.target

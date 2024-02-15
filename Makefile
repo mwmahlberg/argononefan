@@ -1,12 +1,16 @@
-build:
-	go build ./cmd/setfan
-	go build ./cmd/readtemp
-	go build ./cmd/adjustfan
+BINARIES = argononefan
+.PHONY: all clean distclean docker
 
-install:
-	chmod 755 ./deploy/install.sh
-	./deploy/install.sh
+all: $(BINARIES)
 
-uninstall:
-	chmod 755 ./deploy/uninstall.sh
-	./deploy/uninstall.sh
+%: cmd/%/main.go fan.go temp.go
+	go build ./cmd/$@
+
+clean:
+	@$(RM) $(BINARIES)
+
+distclean: clean
+	@$(RM) *.rpm
+
+docker:
+	docker build -t mwmahlberg/argononefan-rpm-builder .
