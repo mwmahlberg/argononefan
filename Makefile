@@ -1,9 +1,11 @@
 BINARIES = argononefan
+CMDSOURCES = $(wildcard cmd/argononefan/*.go)
+SOURCES = $(CMDSOURCES) fan.go temperature.go
 .PHONY: all clean distclean docker
 
 all: $(BINARIES)
 
-%: cmd/%/main.go cmd/%/help.go cmd/%/thresholds.go fan.go temperature.go
+argononefan: $(SOURCES)
 	go build ${GOLDFLAGS} ./cmd/$@
 
 clean:
