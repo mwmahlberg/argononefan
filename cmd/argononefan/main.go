@@ -39,11 +39,6 @@ var (
 	l hclog.Logger
 )
 
-func (t *thresholds) AfterApply(ctx *kong.Context) error {
-	t.GenerateIndex()
-	return nil
-}
-
 var cli struct {
 	Debug      bool   `short:"d" long:"debug" help:"Enable debug mode" default:"false"`
 	DeviceFile string `short:"f" long:"file" help:"File path in sysfs containing current CPU temperature" default:"/sys/class/thermal/thermal_zone0/temp"`
