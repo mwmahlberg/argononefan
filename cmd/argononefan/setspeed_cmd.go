@@ -30,10 +30,11 @@ type setSpeedCmd struct {
 }
 
 func (c *setSpeedCmd) Run(ctx *context) error {
-	ctx.logger.Debug("Connecting to fan", "options", ctx.fanOptions)
+	ml := ctx.logger.Named("set-speed")
+	ml.Debug("Connecting to fan", "options", ctx.fanOptions)
 	fan, err := argononefan.Connect(ctx.fanOptions...)
 	if err != nil {
-		ctx.logger.Error("Error connecting to fan", "error", err)
+		ml.Error("Error connecting to fan", "error", err)
 		return fmt.Errorf("Error connecting to fan: %w", err)
 	}
 	return fan.SetSpeed(c.Speed)

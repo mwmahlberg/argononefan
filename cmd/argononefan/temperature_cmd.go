@@ -37,7 +37,9 @@ type temperatureCmd struct {
 }
 
 func (tc *temperatureCmd) Run(ctx *context) error {
-	ctx.logger.Debug("Creating thermal reader", "device", ctx.thermalDeviceFile, "imperial", tc.Imperial)
+	ml := ctx.logger.Named("temperature")
+	ml.Debug("Creating thermal reader", "device", ctx.thermalDeviceFile, "imperial", tc.Imperial)
+
 	tr, err := argononefan.NewThermalReader(argononefan.WithThermalDeviceFile(ctx.thermalDeviceFile))
 	if err != nil {
 		return fmt.Errorf("creating thermal reader: %w", err)
