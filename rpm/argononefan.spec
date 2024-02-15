@@ -2,8 +2,10 @@ Name:     argononefan
 Version:  0.11
 Release:  %autorelease
 Summary:  ArgonOne fan control daemon and cli tools
-License:  MIT
+Packager: Markus Mahlberg <138420+mwmahlberg@users.noreply.github.com>
+License:  Apache-2.0
 URL:      https://github.com/mwmahlberg/argononefan/
+BugURL:   https://github.com/mwmahlberg/argononefan/issues
 Source0:  https://github.com/mwmahlberg/argononefan/archive/refs/heads/master.zip
 BuildRequires: golang
 %global debug_package %{nil}
