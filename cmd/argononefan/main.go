@@ -23,11 +23,8 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"slices"
 	"syscall"
 	"time"
-
-	"golang.org/x/exp/maps"
 
 	"github.com/alecthomas/kong"
 	"github.com/hashicorp/go-hclog"
@@ -42,14 +39,20 @@ var (
 	l hclog.Logger
 )
 
+func (t *thresholds) AfterApply(ctx *kong.Context) error {
+	t.GenerateIndex()
+	return nil
+}
+
 var cli struct {
 	Debug      bool   `short:"d" long:"debug" help:"Enable debug mode" default:"false"`
 	DeviceFile string `short:"f" long:"file" help:"File path in sysfs containing current CPU temperature" default:"/sys/class/thermal/thermal_zone0/temp"`
 	Bus        int    `short:"b" long:"bus" help:"I2C bus the fan resides on" default:"0"`
 
 	Daemon struct {
-		Thresholds    map[float32]int `short:"t" long:"threshold" help:"Threshold map of °C to fan speed in %" type:"float32:int" default:"60=100;55=50;50=10"`
-		CheckInterval time.Duration   `short:"i" long:"interval" help:"Check interval" default:"5s"`
+		Thresholds    *thresholds   `short:"t" long:"threshold" help:"${help_thresholds}" default:"60=100;55=50;50=10"`
+		Hysteresis    float32       `long:"hysteresis" help:"${help_hysteresis}" default:"1.0"`
+		CheckInterval time.Duration `short:"i" long:"interval" help:"Check interval" default:"5s"`
 	} `kong:"cmd,help='Run the fan control daemon'"`
 
 	Temperature struct {
@@ -65,8 +68,12 @@ func main() {
 
 	ctx := kong.Parse(&cli,
 		kong.Name("argononefan"),
-		kong.Description("Daemon to adjust the fan speed of the Argon One case"),
+		kong.Description("Tools for fan control of the ArgonOne case"),
 		kong.DefaultEnvars("ARGONONEFAN"),
+		kong.Vars{
+			"help_hysteresis": hystereisHelp,
+			"help_thresholds": thresholdsHelp,
+		},
 	)
 	ctx.Stderr = os.Stdout
 
@@ -108,6 +115,13 @@ func main() {
 		os.Exit(0)
 	}
 
+	if l.IsDebug() {
+		cli.Daemon.Thresholds.RLock()
+		l.Debug("Index", "index", cli.Daemon.Thresholds.idx)
+		cli.Daemon.Thresholds.RUnlock()
+	}
+
+	l.Debug("Connecting to fan")
 	fan, err := argononefan.Connect(argononefan.OnBus(cli.Bus))
 
 	if err != nil {
@@ -127,7 +141,7 @@ func main() {
 	tempC, done := readTemp(cli.Daemon.CheckInterval, tr)
 
 	l.Debug("Starting adjust goroutine")
-	go control(fan, cli.Daemon.Thresholds, tempC)
+	go control(fan, cli.Daemon.Thresholds, cli.Daemon.Hysteresis, tempC)
 
 	l.Debug("Waiting for stop signal")
 	<-stopsig
@@ -182,37 +196,30 @@ func readTemp(interval time.Duration, tr *argononefan.ThermalReader) (<-chan flo
 	return c, done
 }
 
-func control(fan *argononefan.Fan, config map[float32]int, tempC <-chan float32) {
+func control(fan *argononefan.Fan, config *thresholds, hysteresis float32, tempC <-chan float32) {
 
 	ml := l.Named("control")
-	// Ensure we are looking at the thresholds in descending order
-	thresholds := maps.Keys(config)
-	slices.Sort(thresholds)
-	slices.Reverse(thresholds)
-	ml.Debug("Thresholds", "thresholds", thresholds)
 
-	var currentIdx int
+	var currentSpeed int = -1
 
 	for currentTemperature := range tempC {
 		ml.Debug("Received temperature from reading goroutine", "temperature", fmt.Sprintf("%2.1f", currentTemperature))
 
-		// Find the index of the threshold matching the current temperature
-		idx := slices.IndexFunc(thresholds, func(t float32) bool {
-			// This requires the thresholds to be sorted from higher to lower
-			return currentTemperature >= t
-		})
-
-		switch idx {
-		case currentIdx:
+		speed := config.GetSpeed(currentTemperature)
+		if speed < currentSpeed {
+			speed = config.GetSpeedWithHysteresis(currentTemperature, hysteresis)
+		}
+		switch speed {
+		case currentSpeed:
 			ml.Debug("Temperature is still within the same threshold, no need to adjust fan speed")
 		case -1:
 			ml.Debug("Temperature is lower than the lowest threshold, set fan to 0% speed")
-			currentIdx = -1
+			currentSpeed = -1
 			fan.SetSpeed(0)
 		default:
-			ml.Debug("Found threshold", "index", idx, "threshold", thresholds[idx], "fanSpeed", config[thresholds[idx]])
-			currentIdx = idx
-			fan.SetSpeed(config[thresholds[idx]])
+			ml.Debug("Found threshold", "threshold", config.GetThreshold(currentTemperature), "computed fanSpeed with hystersis", config.GetSpeedWithHysteresis(currentTemperature, hysteresis))
+			currentSpeed = speed
+			fan.SetSpeed(speed)
 		}
 	}
 
