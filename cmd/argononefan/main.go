@@ -50,9 +50,7 @@ var cli struct {
 		CheckInterval time.Duration `short:"i" long:"interval" help:"Check interval" default:"5s"`
 	} `kong:"cmd,help='Run the fan control daemon'"`
 
-	Temperature struct {
-		Imperial bool `short:"i" long:"imperial" help:"Display temperature in imperial system" default:"false" env:"-"`
-	} `kong:"cmd,help='Read the current CPU temperature'"`
+	Temperature temperatureCmd `kong:"cmd,help='Read the current CPU temperature'"`
 
 	SetSpeed struct {
 		Speed int `arg:"" help:"Fan speed" required:"" min:"0" max:"100"`
@@ -81,25 +79,11 @@ func main() {
 		Name:  "argononefand",
 		Level: level,
 	})
-	tr, err := argononefan.NewThermalReader(argononefan.WithThermalDeviceFile(cli.DeviceFile))
-	ctx.FatalIfErrorf(err, "creating thermal reader")
+
 	l.Debug("Executing", "command", ctx.Command())
 	switch ctx.Command() {
 	case "temperature":
-
-		var t float32
-		var frmt string
-		var readErr error
-		if cli.Temperature.Imperial {
-			t, readErr = tr.Fahrenheit()
-			frmt = "Temperature: %2.1f°F"
-		} else {
-			t, readErr = tr.Celsius()
-			frmt = "Temperature: %2.1f°C"
-		}
-		ctx.FatalIfErrorf(readErr, readingTemperatureMsg)
-		ctx.Printf(frmt, t)
-		os.Exit(0)
+		ctx.Run(&context{ThermalDeviceFile: cli.DeviceFile, Imperial: cli.Temperature.Imperial, logger: l.Named("temperature")})
 	case "set-speed <speed>":
 		if cli.SetSpeed.Speed < 0 || cli.SetSpeed.Speed > 100 {
 			ctx.Fatalf("desired fan speed is out of range [0-100]: %d", cli.SetSpeed.Speed)
@@ -110,6 +94,8 @@ func main() {
 		os.Exit(0)
 	}
 
+	tr, err := argononefan.NewThermalReader(argononefan.WithThermalDeviceFile(cli.DeviceFile))
+	ctx.FatalIfErrorf(err, "creating thermal reader")
 	if l.IsDebug() {
 		cli.Daemon.Thresholds.RLock()
 		l.Debug("Index", "index", cli.Daemon.Thresholds.idx)
