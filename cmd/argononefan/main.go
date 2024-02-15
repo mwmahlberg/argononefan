@@ -52,9 +52,7 @@ var cli struct {
 
 	Temperature temperatureCmd `kong:"cmd,help='Read the current CPU temperature'"`
 
-	SetSpeed struct {
-		Speed int `arg:"" help:"Fan speed" required:"" min:"0" max:"100"`
-	} `kong:"cmd,help='Set the fan speed manually'"`
+	SetSpeed setSpeedCmd `kong:"cmd,help='Set the fan speed manually'"`
 }
 
 func main() {
@@ -83,14 +81,14 @@ func main() {
 	l.Debug("Executing", "command", ctx.Command())
 	switch ctx.Command() {
 	case "temperature":
-		ctx.Run(&context{ThermalDeviceFile: cli.DeviceFile, Imperial: cli.Temperature.Imperial, logger: l.Named("temperature")})
+		fallthrough
 	case "set-speed <speed>":
-		if cli.SetSpeed.Speed < 0 || cli.SetSpeed.Speed > 100 {
-			ctx.Fatalf("desired fan speed is out of range [0-100]: %d", cli.SetSpeed.Speed)
-		}
-		fan, err := argononefan.Connect(argononefan.OnBus(cli.Bus))
-		ctx.FatalIfErrorf(err, "connecting to fan")
-		ctx.FatalIfErrorf(fan.SetSpeed(cli.SetSpeed.Speed), "setting fan speed")
+		rerr := ctx.Run(&context{
+			logger:            l.Named(ctx.Command()),
+			fanOptions:        []argononefan.FanOption{argononefan.OnBus(cli.Bus)},
+			thermalDeviceFile: cli.DeviceFile,
+		})
+		ctx.FatalIfErrorf(rerr, "setting fan speed")
 		os.Exit(0)
 	}
 
