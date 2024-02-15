@@ -137,10 +137,10 @@ func main() {
 	var stopsig = make(chan os.Signal, 1)
 	signal.Notify(stopsig, syscall.SIGTERM, syscall.SIGINT)
 
-	l.Debug("Starting goroutine reading temperature")
+	l.Debug("Starting goroutine", "name", "read")
 	tempC, done := readTemp(cli.Daemon.CheckInterval, tr)
 
-	l.Debug("Starting adjust goroutine")
+	l.Debug("Starting goroutine", "name", "control")
 	go control(fan, cli.Daemon.Thresholds, cli.Daemon.Hysteresis, tempC)
 
 	l.Debug("Waiting for stop signal")
@@ -148,9 +148,9 @@ func main() {
 	defer fan.SetSpeed(100)
 	l.Debug("Stop signal received")
 
-	l.Debug("Closing temperature reading goroutine")
+	l.Debug("Shutting down goroutine", "name", "read")
 	done <- true
-	l.Debug("Waiting for adjust goroutine to finish")
+	l.Debug("Waiting for goroutine to finish", "name", "control")
 
 	lastTemp, err := tr.Celsius()
 	ctx.FatalIfErrorf(err, readingTemperatureMsg)
@@ -175,9 +175,9 @@ func readTemp(interval time.Duration, tr *argononefan.ThermalReader) (<-chan flo
 
 			case <-done:
 				ml.Debug("Received stop signal")
-				l.Debug("Closing temperature channel")
+				ml.Debug("Closing temperature channel")
 				close(c)
-				l.Debug("Exiting...")
+				ml.Debug("Exiting...")
 				return
 
 			case <-tick.C:
@@ -188,7 +188,7 @@ func readTemp(interval time.Duration, tr *argononefan.ThermalReader) (<-chan flo
 					continue
 				}
 				ml.Debug("Read temperature", "temperature", fmt.Sprintf("%2.1f", t))
-				ml.Debug("Sending temperature to adjust goroutine")
+				ml.Debug("Sending temperature to control")
 				c <- t
 			}
 		}
@@ -203,7 +203,7 @@ func control(fan *argononefan.Fan, config *thresholds, hysteresis float32, tempC
 	var currentSpeed int = -1
 
 	for currentTemperature := range tempC {
-		ml.Debug("Received temperature from reading goroutine", "temperature", fmt.Sprintf("%2.1f", currentTemperature))
+		ml.Debug("Received temperature from read", "temperature", fmt.Sprintf("%2.1f", currentTemperature))
 
 		speed := config.GetSpeed(currentTemperature)
 		if speed < currentSpeed {
