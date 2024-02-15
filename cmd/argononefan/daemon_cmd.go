@@ -40,10 +40,10 @@ type daemonCmd struct {
 
 func (d *daemonCmd) Run(ctx *context) error {
 	d.logger = ctx.logger.Named("daemon")
-	d.logger.Info("Starting daemon", "thresholds", d.Thresholds, "hysteresis", d.Hysteresis, "interval", d.CheckInterval)
+	d.logger.Info("Starting daemon", "thresholds", d.Thresholds.thresholds, "hysteresis", d.Hysteresis, "interval", d.CheckInterval)
 
-	d.logger.Debug("Creating thermal reader", "device", ctx.thermalDeviceFile)
-	tr, err := argononefan.NewThermalReader(argononefan.WithThermalDeviceFile(ctx.thermalDeviceFile))
+	d.logger.Debug("Creating thermal reader", "device", ctx.thermalReaderOptions)
+	tr, err := argononefan.NewThermalReader(ctx.thermalReaderOptions...)
 	if err != nil {
 		return fmt.Errorf("creating thermal reader: %w", err)
 	}
@@ -128,6 +128,7 @@ func (d *daemonCmd) control(fan *argononefan.Fan, config *thresholds, hysteresis
 	var currentSpeed int = -1
 
 	var once sync.Once
+
 	for currentTemperature := range tempC {
 
 		ml.Debug("Received temperature from read", "temperature", fmt.Sprintf("%2.1f", currentTemperature))
@@ -136,16 +137,22 @@ func (d *daemonCmd) control(fan *argononefan.Fan, config *thresholds, hysteresis
 		if speed < currentSpeed {
 			speed = config.GetSpeedWithHysteresis(currentTemperature, hysteresis)
 		}
+
 		switch speed {
+
 		case currentSpeed:
 			ml.Debug("Temperature is still within the same threshold, no need to adjust fan speed")
+
 		default:
 			ml.Debug("Found threshold", "threshold", config.GetThreshold(currentTemperature), "computed fanSpeed with hystersis", config.GetSpeedWithHysteresis(currentTemperature, hysteresis))
+
 			currentSpeed = speed
 			fan.SetSpeed(speed)
+
 			once.Do(func() {
 				ml.Info("Set initial fan speed based on readings", "temperature", currentTemperature, "speed", currentSpeed)
 			})
+
 		}
 	}
 

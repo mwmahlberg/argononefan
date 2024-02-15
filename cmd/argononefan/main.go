@@ -71,9 +71,9 @@ func main() {
 	l.Debug("Executing", "command", ctx.Command())
 
 	rerr := ctx.Run(&context{
-		logger:            l,
-		fanOptions:        []argononefan.FanOption{argononefan.OnBus(cli.Bus)},
-		thermalDeviceFile: cli.DeviceFile,
+		logger:               l,
+		fanOptions:           []argononefan.FanOption{argononefan.OnBus(cli.Bus)},
+		thermalReaderOptions: []argononefan.ThermalReaderOption{argononefan.WithThermalDeviceFile(cli.DeviceFile)},
 	})
 	ctx.FatalIfErrorf(rerr, "setting fan speed")
 

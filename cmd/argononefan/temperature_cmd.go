@@ -27,9 +27,9 @@ import (
 )
 
 type context struct {
-	thermalDeviceFile string
-	logger            hclog.Logger
-	fanOptions        []argononefan.FanOption
+	logger               hclog.Logger
+	fanOptions           []argononefan.FanOption
+	thermalReaderOptions []argononefan.ThermalReaderOption
 }
 
 type temperatureCmd struct {
@@ -38,9 +38,9 @@ type temperatureCmd struct {
 
 func (tc *temperatureCmd) Run(ctx *context) error {
 	ml := ctx.logger.Named("temperature")
-	ml.Debug("Creating thermal reader", "device", ctx.thermalDeviceFile, "imperial", tc.Imperial)
+	ml.Debug("Creating thermal reader")
 
-	tr, err := argononefan.NewThermalReader(argononefan.WithThermalDeviceFile(ctx.thermalDeviceFile))
+	tr, err := argononefan.NewThermalReader(ctx.thermalReaderOptions...)
 	if err != nil {
 		return fmt.Errorf("creating thermal reader: %w", err)
 	}
