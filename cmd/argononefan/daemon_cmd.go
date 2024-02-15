@@ -54,12 +54,20 @@ func (d *daemonCmd) Run(ctx *context) error {
 	}
 
 	// Set the fan speed to a safe 100% to start
+	d.logger.Info("Setting initial fan speed to 100% as a safety measure", "reason", "we don't know the current CPU temperature yet")
 	if err := fan.SetSpeed(100); err != nil {
 		return fmt.Errorf("setting fan speed: %w", err)
 	}
 
 	// Ensure the fan speed is reset to 100% when the daemon exits
-	defer fan.SetSpeed(100)
+	defer func() {
+		lastTemp, err := tr.Celsius()
+		if err != nil {
+			d.logger.Error("Reading temperatur", "error", fmt.Errorf("reading temperature: %w", err))
+		}
+		d.logger.Warn("Fan control is shutting down, setting fan to 100% speed as a safety measure", "temperature", fmt.Sprintf("%2.1f°C", lastTemp))
+		fan.SetSpeed(100)
+	}()
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGTERM, syscall.SIGINT)
@@ -71,11 +79,7 @@ func (d *daemonCmd) Run(ctx *context) error {
 	// Notify the temperature reading goroutine to stop
 	// Since it will close the tempC channel, the control goroutine will also stop
 	done <- true
-	lastTemp, err := tr.Celsius()
-	if err != nil {
-		return fmt.Errorf("reading temperature: %w", err)
-	}
-	l.Warn("Fan control is shutting down, setting fan to 100% speed as a safety measure", "temperature", fmt.Sprintf("%2.1f°C", lastTemp))
+
 	return nil
 }
 
