@@ -12,25 +12,33 @@ When run in [daemon][wp:daemon] mode, `argononefan` will read the temperature
 of the CPU each `$ARGONONEFAN_CHECK_INTERVAL` and if a threshold is crossed
 set the fan speed to the according value for the current threshold.
 
+> ***Note***
+>
+> A Raspberry Pi 4 is safe to run below 85°C, according to [raspberrytips.com][rpitips:cooling]
+> and several other sources.
+>
+> The default thresholds try to find a balance between convenience (fan off) and
+> proper cooling (turning the fan on 100% way before a critical temperature is reached).
+
 In the output of the help below (which is also showing the defaults),
 this would translate to:
 
 | Temperature | Threshold | Fan Speed       |
 | ----------- | --------- | --------------- |
-| >60°C       | 60        | 100%            |
-| 58°C        | 55        | 50%             |
-| 50°C        | 50        | 10%             |
-| <50°C       | -         | 0% (fan is off) |
+| >=70°C      | 70        | 100%            |
+| 61°C        | 60        | 50%             |
+| 58°C        | 55        | 10%             |
+| <55°C       | -         | 0% (fan is off) |
 
 With the default hysteresis of 1.0 set, if the temperature crossed a higher threshold,
 it must drop 1.0°C below the threshold it is coming from before the fan will be
 slowed down.
 
-Say the temperature was 51°C and drops to 49.5°C. Without the hysteresis, the
+Say the temperature was 56°C and drops to 54.5°C. Without the hysteresis, the
 fan would turn off. However, with the hysteresis, the CPU would first have to cool
-down to 49°C or lower for the fan to stop.
+down to 54°C or lower for the fan to stop.
 
-Note that for failsafe reasons, the hysteresis is not applied when checking wether
+Note that as a failsafe measure, the hysteresis is never applied when checking whether
 the fan should speed up.
 
 ```none
@@ -46,7 +54,7 @@ Flags:
                              temperature ($ARGONONEFAN_DEVICE_FILE)
   -b, --bus=0                I2C bus the fan resides on ($ARGONONEFAN_BUS)
 
-  -t, --thresholds=60=100;55=50;50=10
+  -t, --thresholds=70=100;60=50;55=10 
                              thresholds is map of °C to fan speed in %
                              ($ARGONONEFAN_THRESHOLDS)
       --hysteresis=1.0       hysteresis is the value in °C the temperature must
@@ -114,3 +122,4 @@ foundational work. As usual as an open source developer one stands on the
 shoulders of giants.
 
 [wp:daemon]: https://en.wikipedia.org/wiki/Daemon_(computing) "Wikipedia page on 'daemon (computing)'"
+[rpitips:cooling]: https://raspberrytips.com/raspberry-pi-temperature/ "Raspberry Pi Temperature: Limits monitoring, cooling and more"

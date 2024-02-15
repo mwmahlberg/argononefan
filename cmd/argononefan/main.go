@@ -50,7 +50,7 @@ var cli struct {
 	Bus        int    `short:"b" long:"bus" help:"I2C bus the fan resides on" default:"0"`
 
 	Daemon struct {
-		Thresholds    *thresholds   `short:"t" long:"threshold" help:"${help_thresholds}" default:"60=100;55=50;50=10"`
+		Thresholds    *thresholds   `short:"t" long:"threshold" help:"${help_thresholds}" default:"70=100;60=50;55=10"`
 		Hysteresis    float32       `long:"hysteresis" help:"${help_hysteresis}" default:"1.0"`
 		CheckInterval time.Duration `short:"i" long:"interval" help:"Check interval" default:"5s"`
 	} `kong:"cmd,help='Run the fan control daemon'"`
