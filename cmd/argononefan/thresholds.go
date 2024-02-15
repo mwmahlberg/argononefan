@@ -26,6 +26,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/alecthomas/kong"
 	"golang.org/x/exp/maps"
 )
 
@@ -54,6 +55,11 @@ func (t *thresholds) UnmarshalText(text []byte) error {
 		}
 		t.thresholds[float32(f)] = i
 	}
+	return nil
+}
+
+func (t *thresholds) AfterApply(ctx *kong.Context) error {
+	t.GenerateIndex()
 	return nil
 }
 
