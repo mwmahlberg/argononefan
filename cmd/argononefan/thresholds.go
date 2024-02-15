@@ -72,7 +72,7 @@ func (t *thresholds) GetSpeedWithHysteresis(temperature float32, hysteresis floa
 	t.RLock()
 	defer t.RUnlock()
 	for _, th := range t.idx {
-		if temperature-hysteresis >= th {
+		if temperature > th-hysteresis {
 			return t.thresholds[th]
 		}
 	}
