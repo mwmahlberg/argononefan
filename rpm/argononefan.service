@@ -2,8 +2,8 @@
 Description=ArgonOne fan control daemon
 
 [Service]
-WorkingDirectory=/etc/argonone
-ExecStart=/usr/sbin/argonone daemon
+EnvironmentFile=/etc/sysconfig/argononefan
+ExecStart=/usr/sbin/argononefan daemon
 Restart=on-failure
 Type=simple
 

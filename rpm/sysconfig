@@ -1,0 +1,22 @@
+# Description: Argon One Fan configuration file
+# Type: rpm/sysconfig
+# ConfigVersion: 1.1
+
+# The following are the settings for the Argon One Fan
+# debug: 0 - No debug, 1 - Debug
+ARGONONEFAN_DEBUG='0'
+
+# The device file to read the temperature from
+ARGONONEFAN_DEVICE_FILE='/sys/class/thermal/thermal_zone0/temp'
+
+# The I2C bus to use
+ARGONONEFAN_BUS='1'
+
+# The temperature thresholds and the corresponding fan speeds
+ARGONONEFAN_THRESHOLDS='70=100;60=50;55=10'
+
+# The hysteresis for the fan speed
+ARGONONEFAN_HYSTERESIS='2'
+
+# The interval to check the temperature
+ARGONONEFAN_CHECK_INTERVAL='5s'
