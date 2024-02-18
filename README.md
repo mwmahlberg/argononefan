@@ -42,6 +42,7 @@ Note that as a failsafe measure, the hysteresis is never applied when checking w
 the fan should speed up.
 
 ```none
+$ argononefan daemon -h
 Usage: argononefan daemon
 
 Run the fan control daemon
@@ -54,7 +55,7 @@ Flags:
                              temperature ($ARGONONEFAN_DEVICE_FILE)
   -b, --bus=0                I2C bus the fan resides on ($ARGONONEFAN_BUS)
 
-  -t, --thresholds=70=100;60=50;55=10 
+  -t, --thresholds=70=100;60=50;55=10
                              thresholds is map of °C to fan speed in %
                              ($ARGONONEFAN_THRESHOLDS)
       --hysteresis=1.0       hysteresis is the value in °C the temperature must
@@ -68,6 +69,9 @@ Flags:
 
                                ($ARGONONEFAN_HYSTERESIS)
   -i, --check-interval=5s    Check interval ($ARGONONEFAN_CHECK_INTERVAL)
+      --prometheus-bind="localhost:8080"
+                             Address to bind the Prometheus metrics server to
+                             ($ARGONONEFAN_PROMETHEUS_BIND)
 ```
 
 ### Read the temperature of the CPU

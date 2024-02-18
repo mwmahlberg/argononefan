@@ -21,6 +21,7 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"sync"
@@ -29,18 +30,34 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/mwmahlberg/argononefan"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 type daemonCmd struct {
-	Thresholds    *thresholds   `short:"t" long:"threshold" help:"${help_thresholds}" default:"70=100;60=50;55=10"`
-	Hysteresis    float32       `long:"hysteresis" help:"${help_hysteresis}" default:"1.0"`
-	CheckInterval time.Duration `short:"i" long:"interval" help:"Check interval" default:"5s"`
-	logger        hclog.Logger  `kong:"-"`
+	Thresholds     *thresholds   `short:"t" long:"threshold" help:"${help_thresholds}" default:"70=100;60=50;55=10"`
+	Hysteresis     float32       `long:"hysteresis" help:"${help_hysteresis}" default:"1.0"`
+	CheckInterval  time.Duration `short:"i" long:"interval" help:"Check interval" default:"5s"`
+	logger         hclog.Logger  `kong:"-"`
+	PrometheusBind string        `long:"promehteus-bind" help:"Address to bind the Prometheus metrics server to" default:"localhost:8080"`
 }
 
 func (d *daemonCmd) Run(ctx *context) error {
 	d.logger = ctx.logger.Named("daemon")
 	d.logger.Info("Starting daemon", "thresholds", d.Thresholds.thresholds, "hysteresis", d.Hysteresis, "interval", d.CheckInterval)
+
+	d.logger.Info("Starting Prometheus metrics server", "address", d.PrometheusBind)
+
+	http.Handle("/metrics", promhttp.Handler())
+	srv := http.Server{
+		Addr: d.PrometheusBind,
+	}
+
+	go func() {
+
+		if err := srv.ListenAndServe(); err != nil {
+			ctx.logger.Named("prometheus").Error("Starting Prometheus metrics server", "error", err)
+		}
+	}()
 
 	d.logger.Debug("Creating thermal reader", "device", ctx.thermalReaderOptions)
 	tr, err := argononefan.NewThermalReader(ctx.thermalReaderOptions...)
@@ -57,8 +74,10 @@ func (d *daemonCmd) Run(ctx *context) error {
 	// Set the fan speed to a safe 100% to start
 	d.logger.Info("Setting initial fan speed to 100% as a safety measure", "reason", "we don't know the current CPU temperature yet")
 	if err := fan.SetSpeed(100); err != nil {
+		fanSpeedSetFailed.Inc()
 		return fmt.Errorf("setting fan speed: %w", err)
 	}
+	fanSpeedSet.Inc()
 
 	// Ensure the fan speed is reset to 100% when the daemon exits
 	defer func() {
@@ -76,10 +95,10 @@ func (d *daemonCmd) Run(ctx *context) error {
 	tempC, done := d.readTemp(d.CheckInterval, tr)
 	go d.control(fan, d.Thresholds, d.Hysteresis, tempC)
 	<-sigs
-
 	// Notify the temperature reading goroutine to stop
 	// Since it will close the tempC channel, the control goroutine will also stop
 	done <- true
+	srv.Shutdown(nil)
 
 	return nil
 }
@@ -110,8 +129,11 @@ func (d *daemonCmd) readTemp(interval time.Duration, tr *argononefan.ThermalRead
 				t, err := tr.Celsius()
 				if err != nil {
 					ml.Error(readingTemperatureMsg, "error", err)
+					readingsFailed.Inc()
 					continue
 				}
+				readings.Inc()
+				temperatureK.Set(float64(t + 273.15))
 				ml.Debug("Read temperature", "temperature", fmt.Sprintf("%2.1f", t))
 				ml.Debug("Sending temperature to control")
 				c <- t
@@ -147,8 +169,14 @@ func (d *daemonCmd) control(fan *argononefan.Fan, config *thresholds, hysteresis
 			ml.Debug("Found threshold", "threshold", config.GetThreshold(currentTemperature), "computed fanSpeed with hystersis", config.GetSpeedWithHysteresis(currentTemperature, hysteresis))
 
 			currentSpeed = speed
-			fan.SetSpeed(speed)
 
+			if err := fan.SetSpeed(speed); err != nil {
+				ml.Error("Setting fan speed", "error", err)
+				fanSpeedSetFailed.Inc()
+				continue
+			}
+			fanSpeed.Set(float64(speed))
+			fanSpeedSet.Inc()
 			once.Do(func() {
 				ml.Info("Set initial fan speed based on readings", "temperature", currentTemperature, "speed", currentSpeed)
 			})
