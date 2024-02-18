@@ -22,15 +22,15 @@ make
 %install
 rm -rf $RPM_BUILD_ROOT
 install -D -m 0640 rpm/argononefan.service $RPM_BUILD_ROOT/lib/systemd/system/argononefan.service
+install -D -m 640 rpm/sysconfig $RPM_BUILD_ROOT/%{_sysconfdir}/sysconfig/argononefan
 install -D -m 0750 argononefan $RPM_BUILD_ROOT/%{_sbindir}/argononefan
 
 %files
-/lib/systemd/system/adjustfan.service
-%{_sbindir}/setfan
-%{_sbindir}/argononefand
+/lib/systemd/system/argononefan.service
+%{_sbindir}/argononefan
 
-%config
-%{_sysconfdir}/argonone/adjustfan.json
+%config(noreplace)
+%{_sysconfdir}/sysconfig/argononefan
 
 %changelog
 %autochangelog
