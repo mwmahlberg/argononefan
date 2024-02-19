@@ -6,3 +6,10 @@ updates:
     target-branch: "develop"
     schedule:
       interval: daily
+    ignore:
+      # Ignore updates for the following dependencies
+      # The 2.x version of gobot is not compatible with
+      # github.com/warthog618/gpiod@v0.8.2
+      - dependency-name: "gobot.io/x/gobot"
+        # Ignore only new versions for 4.x and 5.x
+        update-types: ["version-update:semver-major"]
