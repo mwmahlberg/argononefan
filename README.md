@@ -8,7 +8,7 @@
 
 ![GitHub Tag](https://img.shields.io/github/v/tag/mwmahlberg/argononefan)
 ![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/mwmahlberg/argononefan)
-[![Godoc](https://godoc.org/github.com/mwmaglberg/argononefan?status.svg)](http://godoc.org/github.com/mwmaglberg/argononefan)
+[![Godoc](https://godoc.org/github.com/mwmahlberg/argononefan?status.svg)](http://godoc.org/github.com/mwmahlberg/argononefan)
 
 ![GitHub Issues or Pull Requests](https://img.shields.io/github/issues-raw/mwmahlberg/argononefan?style=flat)
 ![GitHub Issues or Pull Requests](https://img.shields.io/github/issues-pr-raw/mwmahlberg/argononefan)
