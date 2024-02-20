@@ -59,13 +59,18 @@ func main() {
 	ctx.Stderr = os.Stdout
 
 	var level hclog.Level = hclog.Info
+	colored := hclog.ColorOff
+
 	if cli.Debug {
 		level = hclog.Debug
+		colored = hclog.AutoColor
 	}
 
 	l = hclog.New(&hclog.LoggerOptions{
-		Name:  "argononefan",
-		Level: level,
+		DisableTime:     !cli.Debug,
+		Color:           colored,
+		IncludeLocation: cli.Debug,
+		Level:           level,
 	})
 
 	l.Debug("Executing", "command", ctx.Command())
