@@ -32,7 +32,8 @@ const (
 )
 
 var (
-	l hclog.Logger
+	l       hclog.Logger
+	version = "dev"
 )
 
 var cli struct {
@@ -40,9 +41,10 @@ var cli struct {
 	DeviceFile string `short:"f" long:"file" help:"File path in sysfs containing current CPU temperature" default:"/sys/class/thermal/thermal_zone0/temp"`
 	Bus        int    `short:"b" long:"bus" help:"I2C bus the fan resides on" default:"0"`
 
-	Daemon      daemonCmd      `kong:"cmd,help='Run the fan control daemon'"`
-	Temperature temperatureCmd `kong:"cmd,help='Read the current CPU temperature'"`
-	SetSpeed    setSpeedCmd    `kong:"cmd,help='Set the fan speed manually'"`
+	Daemon      daemonCmd        `kong:"cmd,help='Run the fan control daemon'"`
+	Temperature temperatureCmd   `kong:"cmd,help='Read the current CPU temperature'"`
+	SetSpeed    setSpeedCmd      `kong:"cmd,help='Set the fan speed manually'"`
+	Version     kong.VersionFlag `env:"-"`
 }
 
 func main() {
@@ -52,6 +54,7 @@ func main() {
 		kong.Description("Tools for fan control of the ArgonOne case"),
 		kong.DefaultEnvars("ARGONONEFAN"),
 		kong.Vars{
+			"version":         version,
 			"help_hysteresis": hystereisHelp,
 			"help_thresholds": thresholdsHelp,
 		},
