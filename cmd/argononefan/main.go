@@ -32,7 +32,8 @@ const (
 )
 
 var (
-	l hclog.Logger
+	l       hclog.Logger
+	version = "dev"
 )
 
 var cli struct {
@@ -40,9 +41,10 @@ var cli struct {
 	DeviceFile string `short:"f" long:"file" help:"File path in sysfs containing current CPU temperature" default:"/sys/class/thermal/thermal_zone0/temp"`
 	Bus        int    `short:"b" long:"bus" help:"I2C bus the fan resides on" default:"0"`
 
-	Daemon      daemonCmd      `kong:"cmd,help='Run the fan control daemon'"`
-	Temperature temperatureCmd `kong:"cmd,help='Read the current CPU temperature'"`
-	SetSpeed    setSpeedCmd    `kong:"cmd,help='Set the fan speed manually'"`
+	Daemon      daemonCmd        `kong:"cmd,help='Run the fan control daemon'"`
+	Temperature temperatureCmd   `kong:"cmd,help='Read the current CPU temperature'"`
+	SetSpeed    setSpeedCmd      `kong:"cmd,help='Set the fan speed manually'"`
+	Version     kong.VersionFlag `env:"-"`
 }
 
 func main() {
@@ -52,6 +54,7 @@ func main() {
 		kong.Description("Tools for fan control of the ArgonOne case"),
 		kong.DefaultEnvars("ARGONONEFAN"),
 		kong.Vars{
+			"version":         version,
 			"help_hysteresis": hystereisHelp,
 			"help_thresholds": thresholdsHelp,
 		},
@@ -59,22 +62,30 @@ func main() {
 	ctx.Stderr = os.Stdout
 
 	var level hclog.Level = hclog.Info
+	colored := hclog.ColorOff
+
 	if cli.Debug {
 		level = hclog.Debug
+		colored = hclog.AutoColor
 	}
 
 	l = hclog.New(&hclog.LoggerOptions{
-		Name:  "argononefan",
-		Level: level,
+		DisableTime:     !cli.Debug,
+		Color:           colored,
+		IncludeLocation: cli.Debug,
+		Level:           level,
 	})
 
 	l.Debug("Executing", "command", ctx.Command())
 
-	rerr := ctx.Run(&context{
-		logger:               l,
-		fanOptions:           []argononefan.FanOption{argononefan.OnBus(cli.Bus)},
-		thermalReaderOptions: []argononefan.ThermalReaderOption{argononefan.WithThermalDeviceFile(cli.DeviceFile)},
-	})
-	ctx.FatalIfErrorf(rerr, "setting fan speed")
+	// We need to bind the logger to that specific interface type
+	// because kong's Bind function does not support binding interfaces
+	// but only concrete types, of which it will determine the
+	// reflection type and then bind to that.
+	ctx.BindTo(l, (*hclog.Logger)(nil))
+	ctx.Bind([]argononefan.ThermalReaderOption{argononefan.WithThermalDeviceFile(cli.DeviceFile)})
+	ctx.Bind([]argononefan.FanOption{argononefan.OnBus(cli.Bus)})
+
+	ctx.FatalIfErrorf(ctx.Run())
 
 }

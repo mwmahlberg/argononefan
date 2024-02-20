@@ -20,9 +20,9 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
-	"os"
 	"os/signal"
 	"sync"
 	"syscall"
@@ -41,8 +41,14 @@ type daemonCmd struct {
 	PrometheusBind string        `long:"promehteus-bind" help:"Address to bind the Prometheus metrics server to" default:"localhost:8080"`
 }
 
-func (d *daemonCmd) Run(ctx *context) error {
-	d.logger = ctx.logger.Named("daemon")
+func (d *daemonCmd) Run(
+	logger hclog.Logger,
+	readerOptions []argononefan.ThermalReaderOption,
+	fanOptions []argononefan.FanOption,
+) error {
+
+	d.logger = logger
+
 	d.logger.Info("Starting daemon", "thresholds", d.Thresholds.thresholds, "hysteresis", d.Hysteresis, "interval", d.CheckInterval)
 
 	d.logger.Info("Starting Prometheus metrics server", "address", d.PrometheusBind)
@@ -53,20 +59,21 @@ func (d *daemonCmd) Run(ctx *context) error {
 	}
 
 	go func() {
-
-		if err := srv.ListenAndServe(); err != nil {
-			ctx.logger.Named("prometheus").Error("Starting Prometheus metrics server", "error", err)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			d.logger.Error("Starting Prometheus metrics server", "error", err)
+		} else if err == http.ErrServerClosed {
+			d.logger.Info("Prometheus metrics server stopped")
 		}
 	}()
 
-	d.logger.Debug("Creating thermal reader", "device", ctx.thermalReaderOptions)
-	tr, err := argononefan.NewThermalReader(ctx.thermalReaderOptions...)
+	d.logger.Debug("Creating thermal reader")
+	tr, err := argononefan.NewThermalReader(readerOptions...)
 	if err != nil {
 		return fmt.Errorf("creating thermal reader: %w", err)
 	}
 
-	d.logger.Debug("Connecting to fan", "options", ctx.fanOptions)
-	fan, err := argononefan.Connect(ctx.fanOptions...)
+	d.logger.Debug("Connecting to fan")
+	fan, err := argononefan.Connect(fanOptions...)
 	if err != nil {
 		return fmt.Errorf("connecting to fan: %w", err)
 	}
@@ -89,99 +96,67 @@ func (d *daemonCmd) Run(ctx *context) error {
 		fan.SetSpeed(100)
 	}()
 
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGTERM, syscall.SIGINT)
+	signalCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
+	defer stop()
 
-	tempC, done := d.readTemp(d.CheckInterval, tr)
-	go d.control(fan, d.Thresholds, d.Hysteresis, tempC)
-	<-sigs
-	// Notify the temperature reading goroutine to stop
-	// Since it will close the tempC channel, the control goroutine will also stop
-	done <- true
+	go d.control(signalCtx, fan, tr, d.Thresholds, d.Hysteresis)
+	<-signalCtx.Done()
 	srv.Shutdown(nil)
 
 	return nil
 }
 
-func (d *daemonCmd) readTemp(interval time.Duration, tr *argononefan.ThermalReader) (<-chan float32, chan<- bool) {
-	ml := d.logger.Named("read")
+func (d *daemonCmd) control(ctx context.Context, fan *argononefan.Fan, tr *argononefan.ThermalReader, config *thresholds, hysteresis float32) {
 
-	c := make(chan float32)
-	done := make(chan bool)
-	go func() {
+	var (
+		currentSpeed       int = -1
+		currentTemperature float32
+		once               sync.Once
+		tick               = time.NewTicker(5 * time.Second)
+		errC               = make(chan error)
+		err                error
+	)
 
-		tick := time.NewTicker(interval)
+	for {
+		select {
+		case <-tick.C:
+			if currentTemperature, err = tr.Celsius(); err != nil {
+				errC <- fmt.Errorf("reading temperature: %w", err)
+			}
+			targetSpeed := config.GetSpeed(currentTemperature)
 
-		ml.Debug("Start reading temperature", "interval", interval)
+			if targetSpeed < currentSpeed {
+				targetSpeed = config.GetSpeedWithHysteresis(currentTemperature, hysteresis)
+			}
 
-		for {
-			select {
+			switch targetSpeed {
 
-			case <-done:
-				ml.Debug("Received stop signal")
-				ml.Debug("Closing temperature channel")
-				close(c)
-				ml.Debug("Exiting...")
-				return
+			case currentSpeed:
+				d.logger.Debug("Temperature is still within the same threshold, no need to adjust fan speed")
 
-			case <-tick.C:
+			default:
+				d.logger.Debug("Found threshold", "threshold", config.GetThreshold(currentTemperature), "computed fanSpeed with hystersis", config.GetSpeedWithHysteresis(currentTemperature, hysteresis))
 
-				t, err := tr.Celsius()
-				if err != nil {
-					ml.Error(readingTemperatureMsg, "error", err)
-					readingsFailed.Inc()
+				currentSpeed = targetSpeed
+				if err = fan.SetSpeed(targetSpeed); err != nil {
+					d.logger.Error("Setting fan speed", "error", err)
+					errC <- fmt.Errorf("setting fan speed: %w", err)
+					fanSpeedSetFailed.Inc()
 					continue
 				}
-				readings.Inc()
-				temperatureK.Set(float64(t + 273.15))
-				ml.Debug("Read temperature", "temperature", fmt.Sprintf("%2.1f", t))
-				ml.Debug("Sending temperature to control")
-				c <- t
+
+				fanSpeed.Set(float64(targetSpeed))
+				fanSpeedSet.Inc()
+
+				once.Do(func() {
+					d.logger.Info("Set initial fan speed based on readings", "temperature", currentTemperature, "speed", currentSpeed)
+				})
 			}
-		}
-	}()
-	return c, done
-}
 
-func (d *daemonCmd) control(fan *argononefan.Fan, config *thresholds, hysteresis float32, tempC <-chan float32) {
-
-	ml := d.logger.Named("control")
-
-	var currentSpeed int = -1
-
-	var once sync.Once
-
-	for currentTemperature := range tempC {
-
-		ml.Debug("Received temperature from read", "temperature", fmt.Sprintf("%2.1f", currentTemperature))
-
-		speed := config.GetSpeed(currentTemperature)
-		if speed < currentSpeed {
-			speed = config.GetSpeedWithHysteresis(currentTemperature, hysteresis)
-		}
-
-		switch speed {
-
-		case currentSpeed:
-			ml.Debug("Temperature is still within the same threshold, no need to adjust fan speed")
-
-		default:
-			ml.Debug("Found threshold", "threshold", config.GetThreshold(currentTemperature), "computed fanSpeed with hystersis", config.GetSpeedWithHysteresis(currentTemperature, hysteresis))
-
-			currentSpeed = speed
-
-			if err := fan.SetSpeed(speed); err != nil {
-				ml.Error("Setting fan speed", "error", err)
-				fanSpeedSetFailed.Inc()
-				continue
-			}
-			fanSpeed.Set(float64(speed))
-			fanSpeedSet.Inc()
-			once.Do(func() {
-				ml.Info("Set initial fan speed based on readings", "temperature", currentTemperature, "speed", currentSpeed)
-			})
-
+		case <-ctx.Done():
+			d.logger.Debug("Received stop signal")
+			d.logger.Debug("Exiting goroutine...")
+			return
 		}
 	}
-
 }
