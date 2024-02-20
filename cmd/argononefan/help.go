@@ -19,10 +19,13 @@
 
 package main
 
-const hystereisHelp = `
-hysteresis is the value in °C the temperature must drop below a threshold
-before the fan is slowed down to the according speed. This is to prevent the fan from constantly switching between two speeds.
+const hystereisHelp = `Hysteresis to apply to fan speed changes.
 
-Note that this only applies to the fan slowing down coming from a higher threshold, not when speeding up.
+Hysteresis is the value in °C the temperature must drop below a threshold
+before the fan is slowed down to the according speed. This is to prevent the
+fan from constantly switching between two speeds.
+
+Note that this only applies to the fan slowing down coming from a higher
+threshold, not when speeding up.
 `
 const thresholdsHelp = `thresholds is map of °C to fan speed in %`

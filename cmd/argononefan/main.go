@@ -59,22 +59,30 @@ func main() {
 	ctx.Stderr = os.Stdout
 
 	var level hclog.Level = hclog.Info
+	colored := hclog.ColorOff
+
 	if cli.Debug {
 		level = hclog.Debug
+		colored = hclog.AutoColor
 	}
 
 	l = hclog.New(&hclog.LoggerOptions{
-		Name:  "argononefan",
-		Level: level,
+		DisableTime:     !cli.Debug,
+		Color:           colored,
+		IncludeLocation: cli.Debug,
+		Level:           level,
 	})
 
 	l.Debug("Executing", "command", ctx.Command())
 
-	rerr := ctx.Run(&context{
-		logger:               l,
-		fanOptions:           []argononefan.FanOption{argononefan.OnBus(cli.Bus)},
-		thermalReaderOptions: []argononefan.ThermalReaderOption{argononefan.WithThermalDeviceFile(cli.DeviceFile)},
-	})
-	ctx.FatalIfErrorf(rerr, "setting fan speed")
+	// We need to bind the logger to that specific interface type
+	// because kong's Bind function does not support binding interfaces
+	// but only concrete types, of which it will determine the
+	// reflection type and then bind to that.
+	ctx.BindTo(l, (*hclog.Logger)(nil))
+	ctx.Bind([]argononefan.ThermalReaderOption{argononefan.WithThermalDeviceFile(cli.DeviceFile)})
+	ctx.Bind([]argononefan.FanOption{argononefan.OnBus(cli.Bus)})
+
+	ctx.FatalIfErrorf(ctx.Run())
 
 }

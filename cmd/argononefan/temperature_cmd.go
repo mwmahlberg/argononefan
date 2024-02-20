@@ -26,21 +26,16 @@ import (
 	"github.com/mwmahlberg/argononefan"
 )
 
-type context struct {
-	logger               hclog.Logger
-	fanOptions           []argononefan.FanOption
-	thermalReaderOptions []argononefan.ThermalReaderOption
-}
-
 type temperatureCmd struct {
 	Imperial bool `short:"i" long:"imperial" help:"Display temperature in imperial system" default:"false" env:"-"`
 }
 
-func (tc *temperatureCmd) Run(ctx *context) error {
-	ml := ctx.logger.Named("temperature")
+func (tc *temperatureCmd) Run(logger hclog.Logger, thermalReaderOptions []argononefan.ThermalReaderOption) error {
+
+	ml := logger.Named("temperature")
 	ml.Debug("Creating thermal reader")
 
-	tr, err := argononefan.NewThermalReader(ctx.thermalReaderOptions...)
+	tr, err := argononefan.NewThermalReader(thermalReaderOptions...)
 	if err != nil {
 		return fmt.Errorf("creating thermal reader: %w", err)
 	}
