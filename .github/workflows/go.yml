@@ -18,8 +18,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4.1.1
         with:
-          fetch-tags: true
-          fetch-depth: 0
+          fetch-tags: 'true'
+          fetch-depth: '0'
 
       - name: Set up Go ${{ matrix.go-version }}
         uses: actions/setup-go@v5
