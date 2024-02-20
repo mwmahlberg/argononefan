@@ -21,10 +21,11 @@ package main
 
 import (
 	"fmt"
-	"slices"
 	"strconv"
 	"strings"
 	"sync"
+
+	"golang.org/x/exp/slices"
 
 	"github.com/alecthomas/kong"
 	"golang.org/x/exp/maps"
