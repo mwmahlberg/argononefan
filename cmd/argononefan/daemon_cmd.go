@@ -99,14 +99,28 @@ func (d *daemonCmd) Run(
 	signalCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
 
-	go d.control(signalCtx, fan, tr, d.Thresholds, d.Hysteresis)
-	<-signalCtx.Done()
-	srv.Shutdown(nil)
+	errC := d.control(signalCtx, fan, tr, d.Thresholds, d.Hysteresis)
+
+cmdloop:
+	for {
+		select {
+		case err := <-errC:
+			d.logger.Error("Error in control loop", "error", err)
+		case <-signalCtx.Done():
+			d.logger.Debug("Received stop signal")
+			d.logger.Debug("Shutting down Prometheus metrics server")
+			if err := srv.Shutdown(nil); err != nil {
+				d.logger.Error("shutting down Prometheus metrics server:", err)
+			}
+			// Without the label, the break would only break out of the select
+			break cmdloop
+		}
+	}
 
 	return nil
 }
 
-func (d *daemonCmd) control(ctx context.Context, fan *argononefan.Fan, tr *argononefan.ThermalReader, config *thresholds, hysteresis float32) {
+func (d *daemonCmd) control(ctx context.Context, fan *argononefan.Fan, tr *argononefan.ThermalReader, config *thresholds, hysteresis float32) chan error {
 
 	var (
 		currentSpeed       int = -1
@@ -116,47 +130,49 @@ func (d *daemonCmd) control(ctx context.Context, fan *argononefan.Fan, tr *argon
 		errC               = make(chan error)
 		err                error
 	)
+	go func() {
+		for {
+			select {
+			case <-tick.C:
+				if currentTemperature, err = tr.Celsius(); err != nil {
+					errC <- fmt.Errorf("reading temperature: %w", err)
+				}
+				targetSpeed := config.GetSpeed(currentTemperature)
 
-	for {
-		select {
-		case <-tick.C:
-			if currentTemperature, err = tr.Celsius(); err != nil {
-				errC <- fmt.Errorf("reading temperature: %w", err)
-			}
-			targetSpeed := config.GetSpeed(currentTemperature)
-
-			if targetSpeed < currentSpeed {
-				targetSpeed = config.GetSpeedWithHysteresis(currentTemperature, hysteresis)
-			}
-
-			switch targetSpeed {
-
-			case currentSpeed:
-				d.logger.Debug("Temperature is still within the same threshold, no need to adjust fan speed")
-
-			default:
-				d.logger.Debug("Found threshold", "threshold", config.GetThreshold(currentTemperature), "computed fanSpeed with hystersis", config.GetSpeedWithHysteresis(currentTemperature, hysteresis))
-
-				currentSpeed = targetSpeed
-				if err = fan.SetSpeed(targetSpeed); err != nil {
-					d.logger.Error("Setting fan speed", "error", err)
-					errC <- fmt.Errorf("setting fan speed: %w", err)
-					fanSpeedSetFailed.Inc()
-					continue
+				if targetSpeed < currentSpeed {
+					targetSpeed = config.GetSpeedWithHysteresis(currentTemperature, hysteresis)
 				}
 
-				fanSpeed.Set(float64(targetSpeed))
-				fanSpeedSet.Inc()
+				switch targetSpeed {
 
-				once.Do(func() {
-					d.logger.Info("Set initial fan speed based on readings", "temperature", currentTemperature, "speed", currentSpeed)
-				})
+				case currentSpeed:
+					d.logger.Debug("Temperature is still within the same threshold, no need to adjust fan speed")
+
+				default:
+					d.logger.Debug("Found threshold", "threshold", config.GetThreshold(currentTemperature), "computed fanSpeed with hystersis", config.GetSpeedWithHysteresis(currentTemperature, hysteresis))
+
+					currentSpeed = targetSpeed
+					if err = fan.SetSpeed(targetSpeed); err != nil {
+						d.logger.Error("Setting fan speed", "error", err)
+						errC <- fmt.Errorf("setting fan speed: %w", err)
+						fanSpeedSetFailed.Inc()
+						continue
+					}
+
+					fanSpeed.Set(float64(targetSpeed))
+					fanSpeedSet.Inc()
+
+					once.Do(func() {
+						d.logger.Info("Set initial fan speed based on readings", "temperature", currentTemperature, "speed", currentSpeed)
+					})
+				}
+
+			case <-ctx.Done():
+				d.logger.Debug("Received stop signal")
+				d.logger.Debug("Exiting goroutine...")
+				return
 			}
-
-		case <-ctx.Done():
-			d.logger.Debug("Received stop signal")
-			d.logger.Debug("Exiting goroutine...")
-			return
 		}
-	}
+	}()
+	return errC
 }
