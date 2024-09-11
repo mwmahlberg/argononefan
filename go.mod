@@ -3,7 +3,7 @@ module github.com/mwmahlberg/argononefan
 go 1.21
 
 require (
-	github.com/alecthomas/kong v0.9.0
+	github.com/alecthomas/kong v1.2.0
 	github.com/hashicorp/go-hclog v1.6.3
 	github.com/prometheus/client_golang v1.19.1
 	github.com/stretchr/testify v1.9.0
