@@ -1,5 +1,20 @@
 # ArgonOne fan speed tools and control daemon
 
+![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/mwmahlberg/argononefan/.github%2Fworkflows%2Fgo.yml?logo=GitHub&color=00aa00)
+[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=mwmahlberg_argononefan&metric=bugs)](https://sonarcloud.io/summary/new_code?id=mwmahlberg_argononefan)
+[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=mwmahlberg_argononefan&metric=reliability_rating)](https://sonarcloud.io/summary/new_code?id=mwmahlberg_argononefan)
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=mwmahlberg_argononefan&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=mwmahlberg_argononefan)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=mwmahlberg_argononefan&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=mwmahlberg_argononefan)
+
+![GitHub Tag](https://img.shields.io/github/v/tag/mwmahlberg/argononefan)
+![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/mwmahlberg/argononefan)
+[![Godoc](https://godoc.org/github.com/mwmahlberg/argononefan?status.svg)](http://godoc.org/github.com/mwmahlberg/argononefan)
+
+![GitHub Issues or Pull Requests](https://img.shields.io/github/issues-raw/mwmahlberg/argononefan?style=flat)
+![GitHub Issues or Pull Requests](https://img.shields.io/github/issues-pr-raw/mwmahlberg/argononefan)
+![GitHub Issues or Pull Requests](https://img.shields.io/github/issues-pr-closed-raw/mwmahlberg/argononefan)
+![GitHub Sponsors](https://img.shields.io/github/sponsors/mwmahlberg)
+
 ## Installation
 
 TBD
@@ -127,3 +142,7 @@ shoulders of giants.
 
 [wp:daemon]: https://en.wikipedia.org/wiki/Daemon_(computing) "Wikipedia page on 'daemon (computing)'"
 [rpitips:cooling]: https://raspberrytips.com/raspberry-pi-temperature/ "Raspberry Pi Temperature: Limits monitoring, cooling and more"
+
+---
+
+[![SonarCloud](https://sonarcloud.io/images/project_badges/sonarcloud-orange.svg)](https://sonarcloud.io/summary/new_code?id=mwmahlberg_argononefan)
