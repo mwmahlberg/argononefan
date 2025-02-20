@@ -6,7 +6,7 @@ require (
 	github.com/alecthomas/kong v1.4.0
 	github.com/hashicorp/go-hclog v1.6.3
 	github.com/prometheus/client_golang v1.20.5
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.10.0
 	gobot.io/x/gobot v1.16.0
 	golang.org/x/exp v0.0.0-20240213143201-ec583247a57a
 )
