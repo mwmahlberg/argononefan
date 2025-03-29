@@ -39,7 +39,7 @@ archives:
 
 changelog:
   disable: false
-  use: git
+  use: github-native
   sort: asc
   filters:
     exclude:
