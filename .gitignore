@@ -1,7 +1,5 @@
 .vscode
-/setfan
-/readtemp
-/argononefan
-*.rpm
+cmd/argononefan/argononefan
 # Added by goreleaser init:
 dist/
+
