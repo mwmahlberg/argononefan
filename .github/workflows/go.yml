@@ -4,8 +4,6 @@
 name: Go
 
 on:
-  push:
-    branches: ['**']
   pull_request:
     branches: ['master', 'develop']
 
@@ -26,6 +24,9 @@ jobs:
         with:
           go-version: ${{ matrix.go-version }}
 
+      - name: Test
+        run: go test -v ./...
+        
       - name: Build
         run: go build -v ./...
 
