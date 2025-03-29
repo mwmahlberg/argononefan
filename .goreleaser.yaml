@@ -38,8 +38,9 @@ archives:
       {{- if .Arm }}v{{ .Arm }}{{ end }}
 
 changelog:
+
   disable: false
-  use: github-native
+  use: github
   sort: asc
   filters:
     exclude:
