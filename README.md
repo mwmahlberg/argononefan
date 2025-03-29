@@ -15,6 +15,12 @@
 ![GitHub Issues or Pull Requests](https://img.shields.io/github/issues-pr-closed-raw/mwmahlberg/argononefan)
 ![GitHub Sponsors](https://img.shields.io/github/sponsors/mwmahlberg)
 
+## Table of Contents
+
+- [Installation](#installation)
+- [Usage](#usage)
+- [Thanks](#thanks)
+
 ## Installation
 
 TBD
