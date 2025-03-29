@@ -3,3 +3,5 @@
 /readtemp
 /argononefan
 *.rpm
+# Added by goreleaser init:
+dist/
