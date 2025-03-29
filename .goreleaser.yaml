@@ -49,11 +49,9 @@ changelog:
       - "^perf:"
       - "^refactor:"
       - "^style:"
-      - "^test:"
       - "^chore:"
       - "^build:"
       - "^ci:"
-      - "^docs:"
       - "^revert:"
     exclude:
       - "^Merge"
