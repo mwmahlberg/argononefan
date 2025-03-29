@@ -1,6 +1,0 @@
-debug: true
-package-name: "argononefan"
-owner: "Markus Mahlberg"
-
-conventional-commits: true
-exclude-merge-commits: true
