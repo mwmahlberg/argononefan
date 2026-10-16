@@ -123,48 +123,16 @@ cmdloop:
 func (d *daemonCmd) control(ctx context.Context, fan *argononefan.Fan, tr *argononefan.ThermalReader, config *thresholds, hysteresis float32) chan error {
 
 	var (
-		currentSpeed       int = -1
-		currentTemperature float32
-		once               sync.Once
-		tick               = time.NewTicker(5 * time.Second)
-		errC               = make(chan error)
-		err                error
+		ctl  = &fanController{logger: d.logger, config: config, hysteresis: hysteresis, fan: fan, reader: tr, currentSpeed: -1}
+		tick = time.NewTicker(5 * time.Second)
+		errC = make(chan error)
 	)
 	go func() {
 		for {
 			select {
 			case <-tick.C:
-				if currentTemperature, err = tr.Celsius(); err != nil {
-					errC <- fmt.Errorf("reading temperature: %w", err)
-				}
-				targetSpeed := config.GetSpeed(currentTemperature)
-
-				if targetSpeed < currentSpeed {
-					targetSpeed = config.GetSpeedWithHysteresis(currentTemperature, hysteresis)
-				}
-
-				switch targetSpeed {
-
-				case currentSpeed:
-					d.logger.Debug("Temperature is still within the same threshold, no need to adjust fan speed")
-
-				default:
-					d.logger.Debug("Found threshold", "threshold", config.GetThreshold(currentTemperature), "computed fanSpeed with hystersis", config.GetSpeedWithHysteresis(currentTemperature, hysteresis))
-
-					currentSpeed = targetSpeed
-					if err = fan.SetSpeed(targetSpeed); err != nil {
-						d.logger.Error("Setting fan speed", "error", err)
-						errC <- fmt.Errorf("setting fan speed: %w", err)
-						fanSpeedSetFailed.Inc()
-						continue
-					}
-
-					fanSpeed.Set(float64(targetSpeed))
-					fanSpeedSet.Inc()
-
-					once.Do(func() {
-						d.logger.Info("Set initial fan speed based on readings", "temperature", currentTemperature, "speed", currentSpeed)
-					})
+				if err := ctl.step(); err != nil {
+					errC <- err
 				}
 
 			case <-ctx.Done():
@@ -175,4 +143,62 @@ func (d *daemonCmd) control(ctx context.Context, fan *argononefan.Fan, tr *argon
 		}
 	}()
 	return errC
+}
+
+type speedSetter interface {
+	SetSpeed(int) error
+}
+
+type temperatureReader interface {
+	Celsius() (float32, error)
+}
+
+// fanController holds the state of the control loop.
+type fanController struct {
+	logger             hclog.Logger
+	config             *thresholds
+	hysteresis         float32
+	fan                speedSetter
+	reader             temperatureReader
+	currentSpeed       int
+	currentTemperature float32
+	once               sync.Once
+}
+
+// step performs one control iteration. On a failed temperature read the state is
+// left untouched and the fan speed is not adjusted. currentSpeed is only updated
+// after the speed was successfully set, so failed writes are retried.
+func (c *fanController) step() error {
+	temp, err := c.reader.Celsius()
+	if err != nil {
+		return fmt.Errorf("reading temperature: %w", err)
+	}
+	c.currentTemperature = temp
+
+	targetSpeed := c.config.GetSpeed(temp)
+	if targetSpeed < c.currentSpeed {
+		targetSpeed = c.config.GetSpeedWithHysteresis(temp, c.hysteresis)
+	}
+
+	if targetSpeed == c.currentSpeed {
+		c.logger.Debug("Temperature is still within the same threshold, no need to adjust fan speed")
+		return nil
+	}
+
+	c.logger.Debug("Found threshold", "threshold", c.config.GetThreshold(temp), "computed fanSpeed with hystersis", c.config.GetSpeedWithHysteresis(temp, c.hysteresis))
+
+	if err := c.fan.SetSpeed(targetSpeed); err != nil {
+		c.logger.Error("Setting fan speed", "error", err)
+		fanSpeedSetFailed.Inc()
+		return fmt.Errorf("setting fan speed: %w", err)
+	}
+	c.currentSpeed = targetSpeed
+
+	fanSpeed.Set(float64(targetSpeed))
+	fanSpeedSet.Inc()
+
+	c.once.Do(func() {
+		c.logger.Info("Set initial fan speed based on readings", "temperature", temp, "speed", targetSpeed)
+	})
+	return nil
 }
