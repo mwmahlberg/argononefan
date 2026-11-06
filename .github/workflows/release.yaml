@@ -27,7 +27,7 @@ jobs:
 
       # Step 3: Run GoReleaser to build release artifacts
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v6
+        uses: goreleaser/goreleaser-action@e435ccd777264be153ace6237001ef4d979d3a7a # v6
         with:
           version: latest
           args: release
@@ -37,13 +37,13 @@ jobs:
       # Step 4: Generate changelog using requarks/changelog-action
       - name: Generate Changelog
         id: changelog
-        uses: requarks/changelog-action@v1
+        uses: requarks/changelog-action@7ce6be4c4d2233ae2a943694ca34f23aeafa1054 # v1
         with:
           token: ${{ github.token }}
 
       # Step 5: Create GitHub Release
       - name: Create Release
-        uses: ncipollo/release-action@v1.12.0
+        uses: ncipollo/release-action@a2e71bdd4e7dab70ca26a852f29600c98b33153e # v1.12.0
         with:
           allowUpdates: true
           draft: false
