@@ -16,7 +16,7 @@ jobs:
     steps:
       # Step 1: Check out the code
       - name: Check out code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
 
       # Step 2: Set up Go
       - name: Set up Go
